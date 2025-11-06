@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动发卡网站 - 首页</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="/" class="nav-logo">CloudCard</a>
+                <ul class="nav-menu">
+                    <li><a href="/" class="nav-link active">首页</a></li>
+                    <li><a href="/articles.html" class="nav-link">文章</a></li>
+                    <li><a href="/admin/" class="nav-link">登录</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- 英雄部分 -->
+        <section class="hero">
+            <div class="container">
+                <h1>欢迎来到 CloudCard</h1>
+                <p>即时、自动、安全的卡密分发平台。</p>
+                <a href="#featured-products" class="button button-primary">浏览商品</a>
+            </div>
+        </section>
+
+        <!-- 商品分类 -->
+        <section id="categories" class="section">
+            <div class="container">
+                <h2 class="section-title">商品分类</h2>
+                <div id="category-grid" class="category-grid">
+                    <!-- 分类将由 JS 动态加载 -->
+                    <p>正在加载分类...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 特色商品 -->
+        <section id="featured-products" class="section">
+            <div class="container">
+                <h2 class="section-title">精选商品</h2>
+                <div id="product-grid" class="product-grid">
+                    <!-- 商品卡片将由 JS 动态加载 -->
+                    <p>正在加载商品...</p>
+                </div>
+                <div id="loading-error" class="error-message"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 CloudCard. 保留所有权利。</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadFeaturedProducts();
+        });
+
+        // 加载商品分类
+        async function loadCategories() {
+            const grid = document.getElementById('category-grid');
+            try {
+                const response = await fetch('/api/categories');
+                const categories = await response.json();
+
+                if (!categories || categories.length === 0) {
+                    grid.innerHTML = '<p>暂无商品分类。</p>';
+                    return;
+                }
+
+                grid.innerHTML = ''; // 清空加载提示
+                categories.forEach(category => {
+                    const categoryCard = document.createElement('a');
+                    categoryCard.className = 'category-card';
+                    // 暂时我们还没有 category.html, 先只显示
+                    categoryCard.href = `/?category=${category.slug}`; 
+                    categoryCard.innerHTML = `<h3>${category.name}</h3>`;
+                    grid.appendChild(categoryCard);
+                });
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+                grid.innerHTML = '<p>加载分类失败。</p>';
+            }
+        }
+
+        // 加载特色商品
+        async function loadFeaturedProducts() {
+            const grid = document.getElementById('product-grid');
+            const errorEl = document.getElementById('loading-error');
+            try {
+                const response = await fetch('/api/products');
+                const products = await response.json();
+
+                if (!products || products.length === 0) {
+                    grid.innerHTML = '<p>暂无精选商品。</p>';
+                    return;
+                }
+                
+                grid.innerHTML = ''; // 清空加载提示
+                products.forEach(product => {
+                    const card = document.createElement('div');
+                    card.className = 'product-card';
+                    card.innerHTML = `
+                        <img src="${product.image_url}" alt="${product.name}" class="product-image" onerror="this.src='https://placehold.co/400x300/e2e8f0/64748b?text=${encodeURIComponent(product.name)}'">
+                        <div class="product-content">
+                            <h3 class="product-title">${product.name}</h3>
+                            <p class="product-price">￥${product.base_price.toFixed(2)} 起</p>
+                            <a href="/product.html?id=${product.id}" class="button button-secondary">查看详情</a>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                errorEl.textContent = '加载商品失败。请检查后端 API 是否正在运行。';
+            }
+        }
+    </script>
+</body>
+</html>
