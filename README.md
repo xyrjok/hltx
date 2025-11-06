@@ -1,4 +1,4 @@
-<div contenteditable="true" translate="no" class="ProseMirror"><h1>CloudCard 项目部署指南 (Full Stack Pages)</h1><p>欢迎！这份指南将指导你如何正确部署你当前的 GitHub 仓库。</p><p>你现在的架构是 "Full Stack Pages"：你的前端 (<code>index.html</code>) 和后端 (<code>worker.js</code>) 都在同一个 GitHub 仓库中。这是 Cloudflare Pages <strong>推荐</strong>的方式，因为它更简单、更易于管理。</p><p>请<strong>忽略</strong>之前所有关于“单独部署 Worker”的指南，<strong>只看这份</strong>。</p><h2>第一步：在 GitHub 上准备代码</h2><p><strong>你已经完成了！</strong> 你的仓库结构（包含 <code>worker.js</code> 和 <code>_routes.json</code>）是正确的。</p><pre><code>/ (你的仓库根目录)
+<div contenteditable="true" translate="no" class="ProseMirror"><h1>CloudCard 项目部署指南 (Full Stack Pages)</h1><p>欢迎！这份指南将指导你如何正确部署你当前的 GitHub 仓库。</p><p>你现在的架构是 "Full Stack Pages"：你的前端 (<code>index.html</code>) 和后端 (<code>worker.js</code>) 都在同一个 GitHub 仓库中。这是 Cloudflare Pages <strong>推荐</strong>的方式，因为它更简单、更易于管理。</p><p>请<strong>忽略</strong>之前所有关于“单独部署 Worker”的指南 ，<strong>只看这份</strong>。</p><h2>第一步：在 GitHub 上准备代码</h2><p><strong>你已经完成了！</strong> 你的仓库结构（包含 <code>worker.js</code> 和 <code>_routes.json</code>）是正确的。</p><pre><code>/ (你的仓库根目录)
 │
 ├── static/
 │   └── style.css
