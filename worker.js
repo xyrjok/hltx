@@ -3,45 +3,7 @@
  * 它会返回所有前端页面所需的假数据，用于在没有数据库的情况下进行测试。
  */
 
-// --- 粘贴 itty-router v4 源代码开始 ---
-// 这段代码定义了您需要的 Router, json, 和 error
-
-const T = e => e.replace(/(\/?)\*/g, "($1.*)?").replace(/\/$/, "").replace(/:(\w+)(\?)?(\.)?/g, "$3(?<$1>[^/]+)$2").replace(/\.(?=[\w(])/, "\\.");
-
-var A = ({ base: e = "", routes: r = [] } = {}) => ({
-    __proto__: new Proxy({}, {
-        get: (t, o) => (...t) => (r.push([
-            o.toUpperCase(),
-            RegExp(`^${T(e + t[0])}/*$`),
-            t.slice(1)
-        ]), A({ base: e, routes: r }))
-    }),
-    routes: r,
-    handle: async (e, ...t) => {
-        let o, s, a;
-        const n = new URL(e.url);
-        for (var [i, c, l] of r)
-            if ((i === e.method || "ALL" === i) && (s = n.pathname.match(c))) {
-                e.params = s.groups, e.query = Object.fromEntries(n.searchParams.entries());
-                for (var u of l)
-                    if (null != (a = await u(e, ...t))) return a
-            }
-    }
-});
-
-const P = e => new Response(JSON.stringify(e), {
-    headers: { "content-type": "application/json;charset=UTF-8" }
-});
-
-const E = (e, r = 404) => new Response(e, { status: r });
-
-// 将库功能赋值给您代码中使用的常量
-const Router = A;
-const json = P;
-const error = E;
-
-// --- 粘贴 itty-router v4 源代码结束 ---
-
+import { Router, error, json } from 'itty-router';
 // --- 模拟数据库 (Mock DB) ---
 const mockCategories = [
     { id: 1, name: '学习资料', slug: 'study' },
@@ -96,11 +58,11 @@ const withAuth = (request, env) => { // <-- 增加了 'env' 参数
     // 如果 token 正确，什么也不返回，继续执行
 };
 
-
 // --- 公共 API 路由 (和以前一样) ---
 
-// ... (GET /api/categories 到 GET /api/orders/:id 保持不变) ...
-
+router.get('/api/categories', () => {
+    return json(mockCategories);
+});
 // GET /api/products
 router.get('/api/products', () => {
     const productList = mockProducts.map(p => ({
