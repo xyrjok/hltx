@@ -1,6 +1,6 @@
 /**
  * 这是一个 Cloudflare Worker 模拟 (Mock) API 服务器。
- * 它会返回所有前端页面所需的假数据，用于在没有数据库的情况 下进行测试。
+ * 它会返回所有前端页面所需的假数据，用于在没有数据库的情况下进行测试。
  */
 import { Router, error, json } from 'itty-router';
 // --- 模拟数据库 (Mock DB) ---
