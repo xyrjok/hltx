@@ -1,0 +1,9 @@
+{
+  "name": "cloudcard-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "itty-router": "^4.0.0"
+  }
+}
