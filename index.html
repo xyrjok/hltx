@@ -1,1 +1,32 @@
 
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Pages Functions Test</title>
+</head>
+<body>
+    <h1>API 测试</h1>
+    <p id="message">正在测试 API...</p>
+    <script>
+        async function runTest() {
+            try {
+                // 访问 /api/test 路由
+                const response = await fetch('/api/test');
+                
+                if (!response.ok) {
+                    throw new Error(`API 错误: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.text(); // 获取文本响应
+                document.getElementById('message').textContent = '✅ API 成功响应: ' + data;
+                document.getElementById('message').style.color = 'green';
+            } catch (error) {
+                document.getElementById('message').textContent = '❌ API 部署失败或路由错误: ' + error.message;
+                document.getElementById('message').style.color = 'red';
+            }
+        }
+        runTest();
+    </script>
+</body>
+</html>
