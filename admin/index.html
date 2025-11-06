@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台登录</title>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="login-container">
+        <h1>CloudCard 后台管理</h1>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" class="button">登录</button>
+            <p id="error-message" class="error-message" style="display: none;"></p>
+        </form>
+    </div>
+
+    <script>
+        // 检查是否已经登录
+        if (sessionStorage.getItem('admin-token')) {
+            window.location.href = '/admin/dashboard.html';
+        }
+
+        const form = document.getElementById('login-form');
+        const errorMessage = document.getElementById('error-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMessage.style.display = 'none';
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: password })
+                });
+
+                if (!response.ok) {
+                    throw new Error('密码错误或服务器问题');
+                }
+
+                const data = await response.json();
+                
+                if (data.token) {
+                    // 使用 sessionStorage，关闭浏览器标签页即失效
+                    sessionStorage.setItem('admin-token', data.token);
+                    window.location.href = '/admin/dashboard.html';
+                } else {
+                    throw new Error('未收到 Token');
+                }
+
+            } catch (error) {
+                console.error('Login failed:', error);
+                errorMessage.textContent = error.message;
+                errorMessage.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
