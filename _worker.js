@@ -261,7 +261,7 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
     } = await request.json();
     
     // --- 校验 ---
-    if (!name || isNaN(base_price) || base_price <= 0) {
+    if (!name || isNaN(parseFloat(base_price)) || parseFloat(base_price) <= 0) {
         return Response.json({ success: false, message: '商品名称和有效价格是必填项' }, { status: 400 });
     }
     if (!category_id) {
@@ -288,8 +288,8 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
         );
         
         await stmt.bind(
-            name, description, base_price, image_url || '', variantsJson,
-            short_description || '', 
+            name, description, parseFloat(base_price), image_url || '', variantsJson, // <-- 修改后
+            short_description || '',
             keywords || '',          
             parseInt(category_id),   
             parseInt(stock) || 0,    
