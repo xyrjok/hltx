@@ -1,5 +1,5 @@
 <h3>配置数据库 (Cloudflare D1)</h3>
-<p>-- 1. 商品分类</p>
+<p>-- 1. 商品分类 </p>
 <pre class="language-sql"><code>CREATE TABLE Categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
