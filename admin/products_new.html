@@ -32,7 +32,7 @@
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
                 <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
                 <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
-                <li><a href="/admin/config.html"><i class="fas fas-cogs"></i> 配置</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
             <button id="logout-button" class="button button-secondary">
                 <i class="fas fa-sign-out-alt"></i> 退出登录
@@ -74,21 +74,20 @@
 			
 			    <hr class="my-4">
 			    <h4>6. 商品规格配置 (多维度/变体)</h4>
-			    <p class="text-muted fs-6">每一行代表一个规格（例如：颜色），并设置其基础价格。如果仅需单规格商品，请删除多余的行，并使用第一行的值。</p>
+			    <p class="text-muted fs-6">每一行代表一个规格，并设置其基础价格。如果仅需单规格商品，请删除多余的行。</p>
 
 			    <div class="row g-3">
                     <div class="col-md-6">
                         <div class="form-group">
-			                <label for="prod-spec-name">规格名称 (全局，留空则为单规格商品)</label>
-			                <input type="text" id="prod-spec-name" class="form-control" placeholder="例如: 尺寸">
-			                <small class="form-text text-muted">如果只设置一个规格（例如：颜色），此字段可留空。</small>
+			                <label for="prod-spec-name">全局规格名称 (例如: 尺寸)</label>
+			                <input type="text" id="prod-spec-name" class="form-control" placeholder="留空则为单规格商品">
 			            </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-			                <label for="prod-wholesale">默认批发价配置 (一行一个，格式: 数量=价格)</label>
+			                <label for="prod-wholesale">批发价配置 (多行配置)</label>
 			                <textarea id="prod-wholesale" rows="3" class="form-control" placeholder="例: 5=3&#10;10=2.5"></textarea>
-			                <small class="form-text text-muted">对所有规格/变体生效的默认批发价。</small>
+			                <small class="form-text text-muted">此配置将应用于所有规格/变体。</small>
 			            </div>
                     </div>
                 </div>
@@ -98,12 +97,13 @@
 			        <table class="table table-bordered table-sm">
 			            <thead>
 			                <tr>
-			                    <th style="width: 25%;">规格名称</th>
-			                    <th style="width: 20%;">规格名称代码/值</th>
-			                    <th style="width: 20%;">基础售价 (元)</th>
+			                    <th style="width: 20%;">规格名称</th>
+                                <th style="width: 15%;">规格字体颜色代码</th>
+			                    <th style="width: 15%;">售价 (元)</th>
 			                    <th style="width: 15%;">库存 (数量)</th>
 			                    <th style="width: 10%;">自选加价 (元)</th>
-			                    <th style="width: 10%;">操作</th>
+                                <th style="width: 10%;">销量</th>
+			                    <th style="width: 15%;">操作</th>
 			                </tr>
 			            </thead>
 			            <tbody id="variants-container">
@@ -112,7 +112,7 @@
 			        <button type="button" class="btn btn-sm btn-outline-primary" id="add-variant-btn">
 			            <i class="fas fa-plus-circle"></i> + 新增规格
 			        </button>
-			        <small class="form-text text-muted d-block mt-2">如果**规格名称**为空，则只会使用第一行数据作为单规格商品数据。</small>
+			        <small class="form-text text-muted d-block mt-2">如果**全局规格名称**为空，则只会使用第一行数据作为单规格商品数据。</small>
                 </div>
 
 			    <hr class="my-4">
@@ -196,15 +196,15 @@
         const formMessage = document.getElementById('form-message');
 
         // 规格变体模板 - 创建一个表格行 (<tr>)
-        function createVariantRow(name = '', code = '', price = '', stock = '0', addon = '0.00') {
+        function createVariantRow(name = '', color = '', price = '', stock = '0', addon = '0.00', sales = '0') {
             const tr = document.createElement('tr');
             tr.className = 'variant-item';
             tr.innerHTML = `
                 <td>
-                    <input type="text" class="form-control spec-dimension-name" placeholder="例如: 颜色" value="${name}" required>
+                    <input type="text" class="form-control spec-dimension-name" placeholder="例如: 红色" value="${name}" required>
                 </td>
                 <td>
-                    <input type="text" class="form-control spec-code" placeholder="例如: red" value="${code}" required>
+                    <input type="text" class="form-control spec-color-code" placeholder="#FF0000" value="${color}">
                 </td>
                 <td>
                     <input type="number" step="0.01" class="form-control variant-price" placeholder="0.00" value="${price}" required>
@@ -214,6 +214,9 @@
                 </td>
                 <td>
                     <input type="number" step="0.01" class="form-control variant-addon-price" placeholder="0.00" value="${addon}">
+                </td>
+                <td>
+                    <input type="number" class="form-control variant-sales" value="${sales}" readonly>
                 </td>
                 <td>
                     <button type="button" class="btn btn-sm btn-danger remove-variant-btn" title="删除规格">
@@ -259,6 +262,7 @@
             const variantRows = variantsContainer.querySelectorAll('.variant-item');
             
             const variantsData = [];
+            const wholesaleConfig = document.getElementById('prod-wholesale').value;
 
             // --- 校验和数据收集 ---
             let hasError = false;
@@ -272,18 +276,20 @@
             
             for (const row of variantRows) {
                 const specNameInput = row.querySelector('.spec-dimension-name');
-                const specCodeInput = row.querySelector('.spec-code');
+                const specColorCodeInput = row.querySelector('.spec-color-code');
                 const priceInput = row.querySelector('.variant-price');
                 const stockInput = row.querySelector('.variant-stock');
                 const addonInput = row.querySelector('.variant-addon-price');
+                const salesInput = row.querySelector('.variant-sales');
                 
                 const name = specNameInput.value.trim();
-                const code = specCodeInput.value.trim();
+                const colorCode = specColorCodeInput.value.trim();
                 const price = parseFloat(priceInput.value);
                 const stock = parseInt(stockInput.value) || 0;
                 const addon_price = parseFloat(addonInput.value) || 0;
+                const sales = parseInt(salesInput.value) || 0;
                 
-                // 校验名称和代码
+                // 校验名称
                 if (name === '') {
                     formMessage.textContent = '规格名称不能为空。';
                     formMessage.className = 'mt-3 text-danger';
@@ -294,21 +300,23 @@
                 
                 // 校验价格
                 if (isNaN(price) || price <= 0) {
-                    formMessage.textContent = `规格 "${name}" 的基础售价必须是有效数字且大于 0。`;
+                    formMessage.textContent = `规格 "${name}" 的售价必须是有效数字且大于 0。`;
                     formMessage.className = 'mt-3 text-danger';
                     formMessage.style.display = 'block';
                     hasError = true;
                     break;
                 }
                 
-                // 收集数据，这里的 'name' 和 'code' 实际上代表了变体的名称和编码
+                // 收集数据
                 variantsData.push({
+                    // 规格名称在单规格模式下会被覆盖为"默认规格"
                     name: name, 
-                    code: code, // 新增的规格代码/值字段
+                    color_code: colorCode, // 新增的规格颜色代码字段
                     price: price, 
                     stock: stock, 
                     addon_price: addon_price, 
-                    wholesale_config: document.getElementById('prod-wholesale').value, 
+                    wholesale_config: wholesaleConfig, // 引用表格上方的批发配置
+                    sales: sales, // 提交当前的销量值 (0)
                 });
             }
 
@@ -325,8 +333,8 @@
                 // 确保单规格的名称为 "默认规格"
                 if (variantsData.length > 0) {
                     variantsData[0].name = "默认规格";
-                    // 忽略 code 字段，因为它只用于多规格变体
-                    delete variantsData[0].code; 
+                    // 移除 color_code 字段，因为它只用于多规格变体
+                    delete variantsData[0].color_code; 
                 }
             }
 
