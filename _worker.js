@@ -202,6 +202,19 @@ router.post('/api/admin/articles', withAuth, async (request) => {
     return json(newArticle, { status: 201 });
 });
 
+// 7. 获取所有分类 (受保护)
+router.get('/api/admin/categories', withAuth, () => {
+    return json(mockCategories);
+});
+
+// 8. 添加新分类 (受保护)
+router.post('/api/admin/categories', withAuth, async (request) => {
+    const newCategory = await request.json();
+    newCategory.id = Math.floor(Math.random() * 1000) + 10;
+    mockCategories.push(newCategory);
+    console.log('Added category (mock):', JSON.stringify(newCategory));
+    return json(newCategory, { status: 201 });
+});
 
 // --- 404 处理 ---
 router.all('*', () => error(404, 'API endpoint not found'));
