@@ -6,15 +6,23 @@
     slug TEXT NOT NULL UNIQUE
 );</code></pre>
 <p>-- 2. 商品</p>
-<pre class="language-sql"><code>CREATE TABLE Products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category_id INTEGER,
-    name TEXT NOT NULL,
-    description TEXT,
-    image_url TEXT,
-    base_price REAL NOT NULL,
-    FOREIGN KEY (category_id) REFERENCES Categories(id)
-);</code></pre>
+<pre class="language-sql"><code>CREATE TABLE Products (     
+	id INTEGER PRIMARY KEY AUTOINCREMENT,     
+	category_id INTEGER,     
+	name TEXT NOT NULL,     
+	description TEXT,     
+	image_url TEXT,     
+	base_price REAL NOT NULL, 
+	short_description TEXT, 
+	keywords TEXT, 
+	stock INTEGER DEFAULT 0, 
+	wholesale_config TEXT, 
+	addon_price REAL DEFAULT 0.00, 
+	sort_weight INTEGER DEFAULT 0, 
+	is_active INTEGER DEFAULT 1, 
+	variants_json TEXT,     
+	FOREIGN KEY (category_id) REFERENCES Categories(id) 
+	);</code></pre>
 <p>-- 3. 商品规格 (库存)</p>
 <pre class="language-sql"><code>CREATE TABLE ProductVariants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
