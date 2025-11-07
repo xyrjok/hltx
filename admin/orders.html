@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>订单列表</title>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html">仪表盘</a></li>
+                <li class="active"><a href="/admin/orders.html">订单列表</a></li>
+                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
+                <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
+                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
+                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
+                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
+                <li><a href="/admin/payment_settings.html">支付设置</a></li>
+                <li><a href="/admin/articles.html">文章管理</a></li>
+                <li><a href="/admin/config.html">配置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">退出登录</button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>订单列表</h1>
+            <p>查看所有订单的详细信息。</p>
+
+            <div class="admin-card">
+                <h3>订单列表</h3>
+                <div id="order-list" class="item-list">
+                    <p>正在加载订单...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/admin/auth.js"></script>
+    <script>
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('admin-token');
+            window.location.href = '/admin/index.html';
+        });
+
+        const orderListEl = document.getElementById('order-list');
+        const token = sessionStorage.getItem('admin-token');
+
+        // 订单状态的显示配置
+        const statusMap = {
+            'paid': '已支付',
+            'pending': '待支付',
+            'failed': '失败'
+        };
+        const statusColor = {
+            'paid': 'color: #10b981;', // 绿色
+            'pending': 'color: #f59e0b;', // 黄色
+            'failed': 'color: #ef4444;' // 红色
+        };
+
+        async function loadOrders() {
+            try {
+                const response = await fetch('/api/admin/orders', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('无法加载订单');
+                
+                const orders = await response.json();
+                orderListEl.innerHTML = '';
+                
+                if (orders.length === 0) {
+                    orderListEl.innerHTML = '<p>暂无订单。</p>';
+                }
+
+                orders.forEach(order => {
+                    const statusText = statusMap[order.status] || order.status;
+                    const item = document.createElement('div');
+                    item.className = 'item-entry';
+                    item.innerHTML = `
+                        <div>
+                            <strong>${order.order_id}</strong> - ${order.product_name}
+                            <span style="font-size: 0.9em; margin-left: 10px; ${statusColor[order.status] || ''}">${statusText}</span>
+                            <br>
+                            <small>￥${order.total_amount.toFixed(2)} | ${new Date(order.created_at).toLocaleString()}</small>
+                        </div>
+                    `;
+                    orderListEl.appendChild(item);
+                });
+            } catch (error) {
+                orderListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+            }
+        }
+        
+        loadOrders();
+    </script>
+</body>
+</html>
