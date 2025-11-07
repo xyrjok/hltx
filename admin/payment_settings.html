@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支付设置</title>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html">仪表盘</a></li>
+                <li><a href="/admin/orders.html">订单列表</a></li>
+                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
+                <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
+                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
+                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
+                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
+                <li class="active"><a href="/admin/payment_settings.html">支付设置</a></li>
+                <li><a href="/admin/articles.html">文章管理</a></li>
+                <li><a href="/admin/config.html">配置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">退出登录</button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>支付设置</h1>
+            <p>配置您的支付接口参数。</p>
+
+            <div class="admin-card">
+                <form id="payment-settings-form">
+                    <h3>支付宝配置 (模拟)</h3>
+                    <div class="form-group">
+                        <label for="alipay_partner_id">合作者 ID (Partner ID)</label>
+                        <input type="text" id="alipay_partner_id">
+                    </div>
+                    <div class="form-group">
+                        <label for="alipay_key">密钥 (Key)</label>
+                        <input type="password" id="alipay_key" value="********">
+                        <small style="color: #c0392b;">注意：密钥在真实应用中不应明文返回。</small>
+                    </div>
+
+                    <h3 style="margin-top: 1.5rem;">微信支付配置 (模拟)</h3>
+                    <div class="form-group">
+                        <label for="wechatpay_mch_id">商户号 (Mch ID)</label>
+                        <input type="text" id="wechatpay_mch_id">
+                    </div>
+
+                    <h3 style="margin-top: 1.5rem;">通用设置</h3>
+                    <div class="form-group">
+                        <label for="is_enabled">启用支付</label>
+                        <select id="is_enabled">
+                            <option value="true">启用</option>
+                            <option value="false">禁用</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="button">保存设置</button>
+                    <p id="form-message" style="display: none; margin-top: 10px;"></p>
+                </form>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/admin/auth.js"></script>
+    <script>
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('admin-token');
+            window.location.href = '/admin/index.html';
+        });
+
+        const form = document.getElementById('payment-settings-form');
+        const formMessage = document.getElementById('form-message');
+        const token = sessionStorage.getItem('admin-token');
+
+        // 1. 加载现有设置
+        async function loadSettings() {
+            formMessage.style.display = 'none';
+            try {
+                const response = await fetch('/api/admin/settings/payment', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('无法加载设置');
+                
+                const settings = await response.json();
+                
+                document.getElementById('alipay_partner_id').value = settings.alipay_partner_id || '';
+                document.getElementById('wechatpay_mch_id').value = settings.wechatpay_mch_id || '';
+                document.getElementById('is_enabled').value = settings.is_enabled || 'false';
+                
+            } catch (error) {
+                formMessage.textContent = '加载失败: ' + error.message;
+                formMessage.style.color = 'red';
+                formMessage.style.display = 'block';
+            }
+        }
+
+        // 2. 保存设置
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            formMessage.style.display = 'none';
+
+            const updates = {
+                alipay_partner_id: document.getElementById('alipay_partner_id').value,
+                wechatpay_mch_id: document.getElementById('wechatpay_mch_id').value,
+                is_enabled: document.getElementById('is_enabled').value,
+            };
+
+            try {
+                const response = await fetch('/api/admin/settings/payment', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify(updates)
+                });
+
+                if (!response.ok) throw new Error('保存失败');
+                
+                formMessage.textContent = '设置已保存成功！';
+                formMessage.style.color = 'green';
+                formMessage.style.display = 'block';
+                
+            } catch (error) {
+                formMessage.textContent = error.message;
+                formMessage.style.color = 'red';
+                formMessage.style.display = 'block';
+            }
+        });
+
+        loadSettings();
+    </script>
+</body>
+</html>
