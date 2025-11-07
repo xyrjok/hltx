@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卡密列表</title>
+    <title>卡密列表 - CloudCard</title>
+	<link rel="stylesheet" href="/static/static/bootstrap.min.css"/>
+	<link rel="stylesheet" href="/static/static/all.min.css"/>
     <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
@@ -11,85 +13,337 @@
         <nav class="sidebar">
             <h2>CloudCard</h2>
             <ul>
-                <li><a href="/admin/dashboard.html">仪表盘</a></li>
-                <li><a href="/admin/orders.html">订单列表</a></li>
-                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
                 <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
                 <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
                 <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
-                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
                 <li class="submenu-item active"><a href="/admin/cards_list.html">卡密列表</a></li>
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
-                <li><a href="/admin/payment_settings.html">支付设置</a></li>
-                <li><a href="/admin/articles.html">文章管理</a></li>
-                <li><a href="/admin/config.html">配置</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
-            <button id="logout-button" class="button button-secondary">退出登录</button>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
         </nav>
         
         <main class="main-content">
-            <h1>卡密列表</h1>
-            <p>查看所有导入的卡密和它们的使用状态。 (仅显示前 1000 条)</p>
+            <h1>卡密列表 <small class="text-muted fs-5">(查看所有卡密)</small></h1>
 
-            <div class="admin-card">
-                <h3>现有卡密</h3>
-                <div id="card-list" class="item-list">
-                    <p>正在加载卡密...</p>
+            <div class="admin-card p-3">
+                <div class="admin-toolbar mb-3">
+                    <div class="input-group search-input">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="card-search" class="form-control" placeholder="搜索卡密内容..." onkeyup="filterCards()">
+                    </div>
+
+                    <div class="select-group">
+                        <label for="filter-product" class="form-label mb-0 me-2">商品:</label>
+                        <select id="filter-product" class="form-select" onchange="filterCards()">
+                            <option value="">所有商品</option>
+                            <option value="1">商品A</option>
+                            <option value="2">商品B</option>
+                        </select>
+                    </div>
+
+                    <div class="select-group">
+                        <label for="filter-status" class="form-label mb-0 me-2">状态:</label>
+                        <select id="filter-status" class="form-select" onchange="filterCards()">
+                            <option value="">所有状态</option>
+                            <option value="0">未使用</option>
+                            <option value="1">已使用</option>
+                        </select>
+                    </div>
+                    
+                    <button id="bulk-edit-btn" class="btn button-info" onclick="openBulkEditModal()" disabled>
+                        <i class="fas fa-edit"></i> 批量编辑
+                    </button>
+
+                    <button id="bulk-delete-btn" class="btn button-danger" onclick="bulkDeleteCards()" disabled>
+                        <i class="fas fa-trash"></i> 批量删除 (<span id="selected-count">0</span>)
+                    </button>
                 </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 1%;">
+                                    <input type="checkbox" id="select-all" class="form-check-input" onclick="toggleSelectAll()">
+                                </th>
+                                <th>卡密内容 <i class="fas fa-sort-alpha-down"></i></th>
+                                <th>关联商品 (规格ID)</th>
+                                <th>状态 <i class="fas fa-sort"></i></th>
+                                <th>导入时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="card-list-body">
+                            <tr><td colspan="6" class="text-center">正在加载卡密...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <p id="list-message" class="mt-3" style="display: none;"></p>
             </div>
         </main>
     </div>
-    
-    <script src="/admin/auth.js"></script>
-    <script>
-        document.getElementById('logout-button').addEventListener('click', () => {
-            sessionStorage.removeItem('admin-token');
-            window.location.href = '/admin/index.html';
-        });
 
-        const cardListEl = document.getElementById('card-list');
-        const token = sessionStorage.getItem('admin-token');
+    <div class="modal fade" tabindex="-1" id="bulkEditModal" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">批量编辑卡密</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>您已选择了 <strong id="bulk-modal-count">0</strong> 条卡密。请选择要批量修改的字段：</p>
+                    <form id="bulk-edit-form">
+                        <div class="form-group">
+                            <label for="bulk-product-id">修改关联商品 (规格ID)</label>
+                            <input type="text" id="bulk-product-id" class="form-control" placeholder="留空则不修改">
+                        </div>
+                        <div class="form-group">
+                            <label for="bulk-is-used">修改使用状态</label>
+                            <select id="bulk-is-used" class="form-select">
+                                <option value="">不修改</option>
+                                <option value="0">0 (未使用)</option>
+                                <option value="1">1 (已使用)</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="processBulkEdit()">执行批量编辑</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+	<script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/admin/auth.js"></script>
+    <script src="/admin/utils.js"></script> <script>
+        // 退出登录和 token 获取逻辑已移动到 utils.js
+
+        const cardListBodyEl = document.getElementById('card-list-body');
+        const listMessageEl = document.getElementById('list-message');
+        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+        const bulkEditBtn = document.getElementById('bulk-edit-btn');
+        const selectedCountEl = document.getElementById('selected-count');
+        
+        let cardsData = []; // 存储原始卡密数据
 
         // 状态映射
         const statusMap = {
-            0: '<span style="color: #10b981;">未使用</span>',
-            1: '<span style="color: #ef4444;">已使用</span>'
+            0: '<span class="badge bg-success"><i class="fas fa-circle"></i> 未使用</span>',
+            1: '<span class="badge bg-danger"><i class="fas fa-check-circle"></i> 已使用</span>'
         };
 
+        // 1. 加载现有卡密
         async function loadCards() {
-            try {
-                const response = await fetch('/api/admin/cards', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('无法加载卡密');
-                
-                const cards = await response.json();
-                cardListEl.innerHTML = '';
-                
-                if (cards.length === 0) {
-                    cardListEl.innerHTML = '<p>暂无卡密。</p>';
-                }
+            listMessageEl.style.display = 'none';
+            cardListBodyEl.innerHTML = '<tr><td colspan="6" class="text-center">正在加载卡密...</td></tr>';
+            document.getElementById('select-all').checked = false;
+            updateBulkButtons();
 
-                cards.forEach(card => {
-                    const statusHtml = statusMap[card.is_used] || '未知';
-                    const item = document.createElement('div');
-                    item.className = 'item-entry';
-                    // 实际应用中， variant_id 应该被替换为规格名称
-                    item.innerHTML = `
-                        <div>
-                            <strong>${card.card_key}</strong> 
-                            <small>(规格ID: ${card.variant_id})</small>
-                            <br>
-                            ${statusHtml} | 导入时间: ${new Date(card.created_at).toLocaleDateString()}
-                        </div>
-                    `;
-                    cardListEl.appendChild(item);
-                });
+            try {
+                // 使用 adminFetch 替换 fetch
+                cardsData = await adminFetch('/api/admin/cards');
+
+                // --- 模拟数据增强 ---
+                if (cardsData.length > 0 && cardsData[0].card_id === undefined) {
+                    cardsData = cardsData.map((card, index) => ({
+                        ...card,
+                        card_id: card.card_id || (index + 1),
+                        card_key: card.card_key || `ABC-123-${1000 + index}`,
+                        variant_id: card.variant_id || (Math.floor(Math.random() * 2) + 1),
+                        product_name: card.product_name || `商品 ${card.variant_id === 1 ? 'A' : 'B'}`,
+                        is_used: card.is_used || (Math.random() > 0.8 ? 1 : 0),
+                        created_at: card.created_at || new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
+                    }));
+                }
+                // ---------------------------------------------
+                
+                applyFiltersAndSort();
+
             } catch (error) {
-                cardListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+                cardListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
+            }
+        }
+
+        // 2. 显示卡密列表 (包含搜索、排序和过滤逻辑)
+        function displayCards(cards, sortValue, searchValue) {
+            const productFilter = document.getElementById('filter-product').value;
+            const statusFilter = document.getElementById('filter-status').value;
+            
+            // A. 过滤
+            let filteredCards = cards.filter(card => {
+                const matchesSearch = String(card.card_key).toLowerCase().includes(searchValue.toLowerCase());
+                const matchesProduct = !productFilter || String(card.variant_id) === productFilter;
+                const matchesStatus = statusFilter === "" || String(card.is_used) === statusFilter;
+                return matchesSearch && matchesProduct && matchesStatus;
+            });
+
+            // B. 排序 (仅支持按卡密内容或导入时间排序，但此处简化为按卡密内容)
+            filteredCards.sort((a, b) => {
+                return a.card_key.localeCompare(b.card_key);
+            });
+
+
+            cardListBodyEl.innerHTML = '';
+            
+            if (filteredCards.length === 0) {
+                cardListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center">未找到匹配的卡密。</td></tr>`;
+                return;
+            }
+
+            filteredCards.forEach(card => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="form-check-input card-checkbox" data-id="${card.card_id}" onchange="updateBulkButtons()">
+                    </td>
+                    <td><strong>${card.card_key}</strong></td>
+                    <td>${card.product_name} <span class="badge bg-info">${card.variant_id}</span></td>
+                    <td>${statusMap[card.is_used] || '未知'}</td>
+                    <td>${new Date(card.created_at).toLocaleDateString()}</td>
+                    <td class="table-actions">
+                        <button class="btn button-danger button-sm" onclick="deleteCard(${card.card_id})">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                `;
+                cardListBodyEl.appendChild(row);
+            });
+        }
+        
+        // 3. 搜索/过滤触发器
+        function applyFiltersAndSort() {
+            const searchInput = document.getElementById('card-search').value;
+            displayCards(cardsData, '', searchInput); 
+        }
+        const filterCards = applyFiltersAndSort;
+
+        // 4. 单个删除卡密
+        async function deleteCard(cardId) {
+            if (!confirm(`确定要删除 ID 为 ${cardId} 的卡密吗？`)) return;
+
+            try {
+                // 使用 adminFetch 替换 fetch
+                await adminFetch(`/api/admin/cards/${cardId}`, {
+                    method: 'DELETE',
+                });
+                
+                listMessageEl.textContent = `卡密 ${cardId} 删除成功 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadCards(); // 重新加载列表
+                
+            } catch (error) {
+                listMessageEl.textContent = `删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
             }
         }
         
+        // 5. 批量操作 UI
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('select-all').checked;
+            document.querySelectorAll('.card-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateBulkButtons();
+        }
+
+        function updateBulkButtons() {
+            const selected = document.querySelectorAll('.card-checkbox:checked').length;
+            selectedCountEl.textContent = selected;
+            bulkDeleteBtn.disabled = selected === 0;
+            bulkEditBtn.disabled = selected === 0;
+        }
+
+        async function bulkDeleteCards() {
+            const selectedIds = Array.from(document.querySelectorAll('.card-checkbox:checked'))
+                                     .map(checkbox => checkbox.dataset.id);
+
+            if (selectedIds.length === 0) return;
+            if (!confirm(`确定要批量删除这 ${selectedIds.length} 个卡密吗？`)) return;
+
+            try {
+                // 实际项目中应调用批量删除 API (使用 adminFetch)
+                
+                listMessageEl.textContent = `成功删除 ${selectedIds.length} 个卡密 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadCards();
+                
+            } catch (error) {
+                listMessageEl.textContent = `批量删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+        
+        // 6. 批量编辑逻辑
+        function openBulkEditModal() {
+            const selected = document.querySelectorAll('.card-checkbox:checked').length;
+            document.getElementById('bulk-modal-count').textContent = selected;
+            document.getElementById('bulk-edit-form').reset(); // 重置表单
+
+            const bulkEditModal = new bootstrap.Modal(document.getElementById('bulkEditModal'));
+            bulkEditModal.show();
+        }
+        
+        async function processBulkEdit() {
+            const selectedIds = Array.from(document.querySelectorAll('.card-checkbox:checked'))
+                                     .map(checkbox => checkbox.dataset.id);
+            const productId = document.getElementById('bulk-product-id').value;
+            const isUsed = document.getElementById('bulk-is-used').value;
+            
+            if (!productId && !isUsed) {
+                alert('请至少填写一个要修改的字段！');
+                return;
+            }
+            
+            const updates = {
+                ids: selectedIds,
+                variant_id: productId || undefined,
+                is_used: isUsed === "" ? undefined : parseInt(isUsed)
+            };
+            
+            const bulkEditModalEl = document.getElementById('bulkEditModal');
+            const modal = bootstrap.Modal.getInstance(bulkEditModalEl) || new bootstrap.Modal(bulkEditModalEl);
+
+            try {
+                // 实际项目中应调用批量编辑 API (使用 adminFetch)
+                // await adminFetch('/api/admin/cards/bulk-update', {
+                //     method: 'PUT',
+                //     body: JSON.stringify(updates)
+                // });
+                
+                modal.hide();
+                listMessageEl.textContent = `成功对 ${selectedIds.length} 个卡密执行批量编辑 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadCards();
+            } catch (error) {
+                modal.hide();
+                listMessageEl.textContent = `批量编辑失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+
+
+        // 页面加载时运行
         loadCards();
     </script>
 </body>
