@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品管理</title>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html">仪表盘</a></li>
+                <li class="active"><a href="/admin/products.html">商品管理</a></li>
+                <li><a href="/admin/articles.html">文章管理</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">退出登录</button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>商品管理</h1>
+            <p>管理你的所有商品。 (这是一个简化演示)</p>
+
+            <div class="admin-card">
+                <h3>添加新商品</h3>
+                <form id="add-product-form">
+                    <div class="form-group">
+                        <label for="prod-name">商品名称</label>
+                        <input type="text" id="prod-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prod-desc">商品描述</label>
+                        <textarea id="prod-desc" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="prod-price">基础价格 (元)</label>
+                        <input type="number" id="prod-price" step="0.01" required>
+                    </div>
+                    <button type="submit" class="button">添加商品</button>
+                    <p id="form-message" style="display: none;"></p>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <h3>现有商品</h3>
+                <div id="product-list" class="item-list">
+                    <p>正在加载商品...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/admin/auth.js"></script>
+    <script>
+        // 退出登录
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('admin-token');
+            window.location.href = '/admin/index.html';
+        });
+
+        const productListEl = document.getElementById('product-list');
+        const form = document.getElementById('add-product-form');
+        const formMessage = document.getElementById('form-message');
+
+        // 获取 token
+        const token = sessionStorage.getItem('admin-token');
+
+        // 1. 加载现有商品
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/admin/products', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('无法加载商品');
+                
+                const products = await response.json();
+                productListEl.innerHTML = '';
+                
+                if (products.length === 0) {
+                    productListEl.innerHTML = '<p>暂无商品。</p>';
+                }
+
+                products.forEach(prod => {
+                    const item = document.createElement('div');
+                    item.className = 'item-entry';
+                    item.innerHTML = `
+                        <strong>${prod.name}</strong> - ￥${prod.base_price.toFixed(2)}
+                        <button class="button button-danger button-sm" onclick="deleteProduct(${prod.id})">删除</button>
+                    `;
+                    productListEl.appendChild(item);
+                });
+            } catch (error) {
+                productListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+            }
+        }
+
+        // 2. 添加新商品
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            formMessage.style.display = 'none';
+
+            const newProduct = {
+                name: document.getElementById('prod-name').value,
+                description: document.getElementById('prod-desc').value,
+                base_price: parseFloat(document.getElementById('prod-price').value),
+            };
+
+            try {
+                const response = await fetch('/api/admin/products', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify(newProduct)
+                });
+
+                if (!response.ok) throw new Error('添加失败');
+
+                form.reset();
+                formMessage.textContent = '添加成功！';
+                formMessage.style.color = 'green';
+                formMessage.style.display = 'block';
+                loadProducts(); // 重新加载列表
+            } catch (error) {
+                formMessage.textContent = error.message;
+                formMessage.style.color = 'red';
+                formMessage.style.display = 'block';
+            }
+        });
+
+        // 3. 删除商品 (简化)
+        async function deleteProduct(id) {
+            if (!confirm(`确定要删除 ID 为 ${id} 的商品吗？`)) return;
+
+            try {
+                await fetch(`/api/admin/products/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                alert('删除成功 (模拟)');
+                loadProducts();
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // 页面加载时运行
+        loadProducts();
+    </script>
+</body>
+</html>

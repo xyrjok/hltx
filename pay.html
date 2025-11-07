@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支付页面</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="/" class="nav-logo">CloudCard</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container section">
+        <div class="payment-container">
+            <h1 class="section-title">安全支付</h1>
+
+            <!-- 订单创建中 -->
+            <div id="loading-order" class="payment-status">
+                <div class="spinner"></div>
+                <h2>正在创建订单...</h2>
+                <p>请稍候，正在为您生成支付信息。</p>
+            </div>
+
+            <!-- 支付中 -->
+            <div id="payment-processing" class="payment-status" style="display: none;">
+                <h2 id="order-product-name">商品名称</h2>
+                <p id="order-amount" class="order-amount">￥--.--</p>
+                <div id="qr-code-container">
+                    <img id="qr-code-img" src="https://placehold.co/200x200/ffffff/000000?text=QR+Code" alt="支付二维码">
+                </div>
+                <h3>请扫码支付</h3>
+                <p id="payment-status-message">订单将在支付成功后自动完成。</p>
+                <div class="spinner"></div>
+            </div>
+
+            <!-- 支付成功 -->
+            <div id="payment-success" class="payment-status" style="display: none;">
+                <h2>🎉 支付成功！</h2>
+                <p>感谢您的购买，您的卡密信息如下：</p>
+                <div id="delivered-card" class="card-secret">
+                    <!-- 卡密将显示在这里 -->
+                </div>
+                <a href="/" class="button button-primary">返回首页</a>
+            </div>
+
+            <!-- 支付失败 -->
+            <div id="payment-error" class="payment-status" style="display: none;">
+                <h2>支付失败</h2>
+                <p id="error-message-content">创建订单失败，请重试。</p>
+                <a href="/" class="button button-secondary">返回首页</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 CloudCard. 保留所有权利。</p>
+        </div>
+    </footer>
+
+    <script>
+        // UI 状态管理
+        const loadingOrderEl = document.getElementById('loading-order');
+        const paymentProcessingEl = document.getElementById('payment-processing');
+        const paymentSuccessEl = document.getElementById('payment-success');
+        const paymentErrorEl = document.getElementById('payment-error');
+
+        function showStatus(status) {
+            loadingOrderEl.style.display = 'none';
+            paymentProcessingEl.style.display = 'none';
+            paymentSuccessEl.style.display = 'none';
+            paymentErrorEl.style.display = 'none';
+
+            if (status === 'loading') loadingOrderEl.style.display = 'block';
+            if (status === 'processing') paymentProcessingEl.style.display = 'block';
+            if (status === 'success') paymentSuccessEl.style.display = 'block';
+            if (status === 'error') paymentErrorEl.style.display = 'block';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const variantId = params.get('variant_id');
+
+            if (!variantId) {
+                showError('未找到商品规格，无法创建订单。');
+                return;
+            }
+            
+            createOrder(variantId);
+        });
+
+        function showError(message) {
+            showStatus('error');
+            document.getElementById('error-message-content').textContent = message;
+        }
+
+        // 1. 创建订单
+        async function createOrder(variantId) {
+            showStatus('loading');
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ variant_id: variantId })
+                });
+
+                if (!response.ok) {
+                    throw new Error('创建订单失败');
+                }
+
+                const order = await response.json();
+                
+                // 显示支付信息
+                showStatus('processing');
+                document.getElementById('order-product-name').textContent = order.product_name;
+                document.getElementById('order-amount').textContent = `￥${order.total_amount.toFixed(2)}`;
+                
+                // 在模拟 API 中，qr_code_url 只是一个占位符
+                // 在真实 API 中，这里会是真实的二维码数据或 URL
+                if(order.qr_code_url) {
+                    document.getElementById('qr-code-img').src = order.qr_code_url;
+                }
+                
+                // 2. 开始轮询订单状态
+                pollOrderStatus(order.order_id);
+
+            } catch (error) {
+                console.error('Create order error:', error);
+                showError(error.message);
+            }
+        }
+
+        // 2. 轮询订单状态
+        function pollOrderStatus(orderId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/orders/${orderId}`);
+                    if (!response.ok) return; // 继续轮询
+
+                    const order = await response.json();
+
+                    if (order.status === 'paid') {
+                        // 支付成功
+                        clearInterval(interval);
+                        showStatus('success');
+                        document.getElementById('delivered-card').textContent = order.delivered_card;
+                    } else if (order.status === 'failed') {
+                        // 支付失败
+                        clearInterval(interval);
+                        showError('订单已关闭或支付失败。');
+                    }
+                    // 如果是 'pending'，则不做任何事，继续轮询
+                } catch (error) {
+                    console.error('Poll status error:', error);
+                    // 发生网络错误时继续轮询
+                }
+            }, 3000); // 每 3 秒查询一次
+        }
+    </script>
+</body>
+</html>

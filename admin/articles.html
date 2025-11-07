@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章管理</title>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html">仪表盘</a></li>
+                <li><a href="/admin/products.html">商品管理</a></li>
+                <li class="active"><a href="/admin/articles.html">文章管理</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">退出登录</button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>文章管理</h1>
+            <p>管理你的所有文章。 (这是一个简化演示)</p>
+
+            <div class="admin-card">
+                <h3>添加新文章</h3>
+                <form id="add-article-form">
+                    <div class="form-group">
+                        <label for="art-title">文章标题</label>
+                        <input type="text" id="art-title" required>
+                    </div>
+                     <div class="form-group">
+                        <label for="art-slug">访问路径 (例如 'welcome')</label>
+                        <input type="text" id="art-slug" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="art-summary">文章摘要</label>
+                        <input type="text" id="art-summary" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="art-content">文章内容 (支持 HTML)</label>
+                        <textarea id="art-content" rows="6"></textarea>
+                    </div>
+                    <button type="submit" class="button">添加文章</button>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <h3>现有文章</h3>
+                <div id="article-list" class="item-list">
+                    <p>正在加载文章...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/admin/auth.js"></script>
+    <script>
+        // 退出登录
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('admin-token');
+            window.location.href = '/admin/index.html';
+        });
+
+        const articleListEl = document.getElementById('article-list');
+        const token = sessionStorage.getItem('admin-token');
+
+        // 1. 加载现有文章
+        async function loadArticles() {
+            try {
+                const response = await fetch('/api/admin/articles', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('无法加载文章');
+                
+                const articles = await response.json();
+                articleListEl.innerHTML = '';
+                
+                if (articles.length === 0) {
+                    articleListEl.innerHTML = '<p>暂无文章。</p>';
+                }
+
+                articles.forEach(art => {
+                    const item = document.createElement('div');
+                    item.className = 'item-entry';
+                    item.innerHTML = `<strong>${art.title}</strong> (/${art.slug}) <span></span>`;
+                    articleListEl.appendChild(item);
+                });
+            } catch (error) {
+                articleListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+            }
+        }
+        
+        // 2. 添加新文章 (简化)
+        document.getElementById('add-article-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newArticle = { /* ... 获取表单数据 ... */ };
+            
+            try {
+                await fetch('/api/admin/articles', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify(newArticle)
+                });
+                alert('添加成功 (模拟)');
+                loadArticles();
+            } catch(error) {
+                alert('添加失败: ' + error.message);
+            }
+        });
+
+        loadArticles();
+    </script>
+</body>
+</html>
