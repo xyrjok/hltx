@@ -206,18 +206,26 @@
                 description: detailedDescription,
                 
                 // 6. 规格相关
-                base_price: basePrice, 
-                stock: parseInt(document.getElementById('prod-stock').value) || 0,
-                wholesale_config: document.getElementById('prod-wholesale').value,
-                addon_price: parseFloat(document.getElementById('prod-addon-price').value) || 0,
+                // base_price: basePrice, 
+                // stock: parseInt(document.getElementById('prod-stock').value) || 0,
+                // wholesale_config: document.getElementById('prod-wholesale').value,
+                // addon_price: parseFloat(document.getElementById('prod-addon-price').value) || 0,
                 
                 // 9. 排序权重
                 sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
                 // 10. 是否上架
                 is_active: document.getElementById('prod-is-active').checked,
-
-                variants: [] // 默认无规格，保持原有逻辑，等待后续页面管理
-            };
+                // 将默认规格配置作为一个变体对象提交
+	            variants: [{ 
+	                // 默认规格可以有一个名称，比如 "默认"
+	                name: "默认规格", 
+	                price: basePrice, // 基础售价
+	                stock: parseInt(document.getElementById('prod-stock').value) || 0, // 库存
+	                addon_price: parseFloat(document.getElementById('prod-addon-price').value) || 0, // 自选加价
+	                wholesale_config: document.getElementById('prod-wholesale').value, // 批发配置
+	                // 其他变体所需字段...
+	            }]
+	        };
 
             try {
                 // 使用 adminFetch 替换 fetch
