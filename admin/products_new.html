@@ -66,54 +66,58 @@
 			    </div>
 			
 			    <hr class="my-4">
-			    <h4>6. 商品规格配置 (多规格)</h4>
-			    <p class="text-muted fs-6">若配置了规格名称和变体，默认规格配置将自动忽略。详细规格配置请前往商品列表页编辑。</p>
-			
-			    <div class="form-group">
-			        <label for="prod-spec-name">规格名称 (例如: 颜色)</label>
-			        <input type="text" id="prod-spec-name" class="form-control" placeholder="留空则为单规格商品">
-			    </div>
-			    
-			    <div class="form-group" id="variant-config-container" style="display: none;">
-			        <label>规格变体列表</label>
-			        <div id="variants-container">
-			            </div>
-			        <button type="button" class="btn btn-sm btn-primary mt-2" id="add-variant-btn">
-			            <i class="fas fa-plus-circle"></i> 添加变体
-			        </button>
-			    </div>
+			    <h4>6. 商品规格配置 (基础/默认信息)</h4>
+			    <p class="text-muted fs-6">若填写了规格名称和变体，下方价格/库存/加价配置将作为默认值，后续可在“商品列表”中为每个变体单独配置。</p>
 
-                <div id="default-variant-fields">
-                    <h4 class="mt-4" id="default-variant-title">默认规格配置 (单规格商品基础信息)</h4>
-			        <div class="row">
-			            <div class="col-md-4">
-			                <div class="form-group">
-			                    <label for="prod-base-price">基础售价 (元)</label>
-			                    <input type="number" id="prod-base-price" step="0.01" class="form-control" required>
-			                </div>
-			            </div>
-			            <div class="col-md-4">
-			                <div class="form-group">
-			                    <label for="prod-stock">库存 (数量)</label>
-			                    <input type="number" id="prod-stock" class="form-control" placeholder="自动发货商品无需填写" value="0">
-			                    <small class="form-text text-muted">自动发货商品库存会自动计算。</small>
-			                </div>
-			            </div>
-			            <div class="col-md-4">
-			                <div class="form-group">
-			                    <label for="prod-addon-price">自选加价 (元)</label>
-			                    <input type="number" id="prod-addon-price" step="0.01" class="form-control" placeholder="仅对自动发货商品生效" value="0.00">
-			                    <small class="form-text text-muted">开启卡密自选功能所需额外费用。</small>
-			                </div>
+			    <div class="row g-3 align-items-end">
+			        <div class="col-md-3">
+			            <div class="form-group">
+			                <label for="prod-spec-name">规格名称 (留空则为单规格商品)</label>
+			                <input type="text" id="prod-spec-name" class="form-control" placeholder="例如: 颜色">
 			            </div>
 			        </div>
-			        <div class="form-group">
-			            <label for="prod-wholesale">批发价配置 (一行一个，格式: 数量=价格)</label>
-			            <textarea id="prod-wholesale" rows="3" class="form-control" placeholder="例: 5=3&#10;10=2.5"></textarea>
-			            <small class="form-text text-muted">客户购买指定数量或以上时，每件价格为设定价格。批发价将覆盖多规格商品价格。</small>
+			        <div class="col-md-3">
+			            <div class="form-group">
+			                <label for="prod-base-price">基础售价 (元)</label>
+			                <input type="number" id="prod-base-price" step="0.01" class="form-control" required>
+			            </div>
+			        </div>
+			        <div class="col-md-3">
+			            <div class="form-group">
+			                <label for="prod-stock">库存 (数量)</label>
+			                <input type="number" id="prod-stock" class="form-control" placeholder="自动发货无需填写" value="0">
+			            </div>
+			        </div>
+			        <div class="col-md-3">
+			            <div class="form-group">
+			                <label for="prod-addon-price">自选加价 (元)</label>
+			                <input type="number" id="prod-addon-price" step="0.01" class="form-control" value="0.00">
+			            </div>
 			        </div>
 			    </div>
-			
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+			            <div class="form-group">
+			                <label for="prod-wholesale">批发价配置 (一行一个，格式: 数量=价格)</label>
+			                <textarea id="prod-wholesale" rows="3" class="form-control" placeholder="例: 5=3&#10;10=2.5"></textarea>
+			                <small class="form-text text-muted">客户购买指定数量或以上时的价格。多规格时作为默认批发价。</small>
+			            </div>
+                    </div>
+                    
+			        <div class="col-md-6" id="multi-variant-area" style="display: none;">
+			            <div class="form-group">
+			                <label>规格变体列表 (例如: 红色, 蓝色)</label>
+			                <div id="variants-container">
+			                    </div>
+			                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="add-variant-btn">
+			                    <i class="fas fa-plus-circle"></i> + 新增
+			                </button>
+			                <small class="form-text text-muted">创建后请在“商品列表”为每个变体设置价格/库存。</small>
+			            </div>
+			        </div>
+                </div>
+
 			    <hr class="my-4">
 			
 			    <div class="form-group">
@@ -187,20 +191,21 @@
         
         // 页面加载完成后调用
         loadCategories();
-        
-        // ************************ 新增多规格配置逻辑 ************************
+
+        // ************************ 新增多规格配置逻辑 (更新后) ************************
         const specNameInput = document.getElementById('prod-spec-name');
-        const variantConfigContainer = document.getElementById('variant-config-container');
+        const multiVariantArea = document.getElementById('multi-variant-area');
         const variantsContainer = document.getElementById('variants-container');
         const addVariantBtn = document.getElementById('add-variant-btn');
+        const basePriceInput = document.getElementById('prod-base-price');
 
         // 规格变体模板
         function createVariantInput(name = '') {
             const div = document.createElement('div');
-            div.className = 'input-group mb-2 variant-item';
+            div.className = 'input-group input-group-sm mb-1 variant-item';
             div.innerHTML = `
                 <input type="text" class="form-control variant-name" placeholder="变体名称" value="${name}" required>
-                <button type="button" class="btn btn-outline-danger remove-variant-btn">
+                <button type="button" class="btn btn-outline-danger remove-variant-btn" title="删除变体">
                     <i class="fas fa-trash"></i>
                 </button>
             `;
@@ -211,31 +216,25 @@
             return div;
         }
 
-        // 切换规格配置的显示状态 (单规格/多规格)
+        // 切换规格变体区域的显示状态
         function toggleSpecFields() {
             const isMultiSpec = specNameInput.value.trim() !== '';
-            const defaultFields = document.getElementById('default-variant-fields');
-            const basePriceInput = document.getElementById('prod-base-price');
+            
+            multiVariantArea.style.display = isMultiSpec ? 'block' : 'none';
 
-            variantConfigContainer.style.display = isMultiSpec ? 'block' : 'none';
-            defaultFields.style.display = isMultiSpec ? 'none' : 'block';
-
-            // 切换基础售价的 required 状态
-            if (isMultiSpec) {
-                basePriceInput.removeAttribute('required');
-            } else {
-                basePriceInput.setAttribute('required', 'required');
+            // 如果从多规格切回单规格，且变体列表不为空，清空它
+            if (!isMultiSpec) {
+                while (variantsContainer.firstChild) {
+                    variantsContainer.removeChild(variantsContainer.firstChild);
+                }
+            } else if (variantsContainer.children.length === 0) {
+                 // 如果是多规格模式但变体列表为空，添加一个默认变体
+                 variantsContainer.appendChild(createVariantInput('默认'));
             }
         }
 
         // 监听规格名称输入变化
-        specNameInput.addEventListener('input', () => {
-            toggleSpecFields();
-            // 如果是第一次输入规格名称，自动添加一个默认变体
-            if (specNameInput.value.trim() !== '' && variantsContainer.children.length === 0) {
-                variantsContainer.appendChild(createVariantInput('默认'));
-            }
-        });
+        specNameInput.addEventListener('input', toggleSpecFields);
 
         // 监听添加变体按钮
         addVariantBtn.addEventListener('click', () => {
@@ -244,7 +243,7 @@
 
         // 页面初始化时执行一次
         toggleSpecFields();
-        // ************************ 结束新增多规格配置逻辑 ************************
+        // ************************ 结束多规格配置逻辑 (更新后) ************************
 
 
         const form = document.getElementById('add-product-form');
@@ -257,22 +256,20 @@
             // 7. 从 TinyMCE 获取内容
             const detailedDescription = tinymce.get('prod-desc').getContent();
             
-            const basePriceInput = document.getElementById('prod-base-price').value;
-            const basePrice = parseFloat(basePriceInput);
-
-            const specName = document.getElementById('prod-spec-name').value.trim();
+            const basePriceInputVal = document.getElementById('prod-base-price').value;
+            const basePrice = parseFloat(basePriceInputVal);
+            
+            const specName = specNameInput.value.trim();
             const isMultiSpec = specName !== '';
 
-            // 仅对单规格商品执行价格验证
-            if (!isMultiSpec) {
-                 if (isNaN(basePrice) || basePrice <= 0) {
-                     formMessage.textContent = '基础售价必须是有效数字且大于 0';
-                     formMessage.className = 'mt-3 text-danger';
-                     formMessage.style.display = 'block';
-                     return;
-                 }
+            // 对价格执行验证
+            if (isNaN(basePrice) || basePrice <= 0) {
+                 formMessage.textContent = '基础售价必须是有效数字且大于 0';
+                 formMessage.className = 'mt-3 text-danger';
+                 formMessage.style.display = 'block';
+                 return;
             }
-            
+
             const newProduct = {
                 // 1. 商品名称
                 name: document.getElementById('prod-name').value,
@@ -287,33 +284,37 @@
                 // 7. 商品详细描述 (TinyMCE 内容)
                 description: detailedDescription,
                 
-                // 新增规格名称字段
+                // 6. 规格名称字段
                 spec_name: specName, 
                 
                 // 9. 排序权重
                 sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
                 // 10. 是否上架
                 is_active: document.getElementById('prod-is-active').checked,
+                
                 // 提交变体配置
 	            variants: (() => {
+                    const variantInputs = variantsContainer.querySelectorAll('.variant-name');
+                    
+                    if (isMultiSpec && variantInputs.length === 0) {
+                        formMessage.textContent = '多规格商品至少需要一个变体名称';
+                        formMessage.className = 'mt-3 text-danger';
+                        formMessage.style.display = 'block';
+                        // 阻止提交，但不抛出错误，而是通过 message 提示
+                        return null; 
+                    }
+                    
                     if (isMultiSpec) {
-                        const variantInputs = variantsContainer.querySelectorAll('.variant-name');
-                        if (variantInputs.length === 0) {
-                            formMessage.textContent = '多规格商品至少需要一个变体名称';
-                            formMessage.className = 'mt-3 text-danger';
-                            formMessage.style.display = 'block';
-                            throw new Error('No variants added.');
-                        }
-                        // 提交变体名称，价格等使用默认占位符，由用户在商品列表页配置
+                        // 多规格商品: 提交变体名称，并使用基础配置作为默认值
                         return Array.from(variantInputs).map(input => ({
                             name: input.value,
-                            price: 0.01,
-                            stock: 0,
-                            addon_price: 0,
-                            wholesale_config: '',
+                            price: basePrice, // 使用基础售价作为所有变体的默认价格
+                            stock: parseInt(document.getElementById('prod-stock').value) || 0, 
+                            addon_price: parseFloat(document.getElementById('prod-addon-price').value) || 0, 
+                            wholesale_config: document.getElementById('prod-wholesale').value,
                         }));
                     } else {
-                        // 单规格商品: 使用默认规格配置
+                        // 单规格商品: 只有一个 "默认规格"
                         return [{ 
                             name: "默认规格", 
                             price: basePrice, 
@@ -325,11 +326,11 @@
                 })()
 	        };
 
-            // 如果variants()中抛出错误（例如：多规格但无变体），则中断后续流程
-            if (newProduct.variants && newProduct.variants.length === 0 && isMultiSpec) {
+            // 如果 variants 为 null，说明是多规格商品但未填写变体，已通过 message 提示，阻止提交
+            if (newProduct.variants === null) {
                 return;
             }
-
+            
             try {
                 // 使用 adminFetch 替换 fetch
                 await adminFetch('/api/admin/products', {
@@ -338,6 +339,8 @@
                 });
 
                 form.reset();
+                // 确保在 reset 后规格区域恢复到单规格状态
+                toggleSpecFields(); 
                 formMessage.textContent = '创建成功！请前往“商品列表”添加规格。';
                 formMessage.className = 'mt-3 text-success';
                 formMessage.style.display = 'block';
