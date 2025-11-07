@@ -210,3 +210,57 @@ body {
     color: var(--danger-color);
     margin-top: 1rem;
 }
+/* 7. 响应式设计 (补充) */
+@media (max-width: 768px) {
+    /* 侧边栏改为堆叠式，默认隐藏 */
+    .admin-layout {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+        padding: 1rem;
+        /* 使用 flexbox 居中，并准备隐藏 */
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        position: fixed; /* 保持在顶部 */
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar h2 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    /* 隐藏导航菜单，等待汉堡菜单实现 */
+    .sidebar ul {
+        display: none; 
+    }
+    
+    .sidebar #logout-button {
+        /* 在移动端隐藏退出按钮，需要搭配汉堡菜单实现 */
+        display: none; 
+    }
+
+    .main-content {
+        padding: 1rem;
+        margin-top: 60px; /* 为固定的侧边栏留出空间 */
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* 侧边栏项目适应手机宽度 */
+    .sidebar li a {
+        padding: 0.75rem 1rem;
+        margin: 0 1rem;
+    }
+    .sidebar li.submenu-item a {
+        padding-left: 3rem; 
+    }
+}
