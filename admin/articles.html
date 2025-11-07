@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文章管理</title>
+    <title>文章管理 - CloudCard</title>
+    
+	<link rel="stylesheet" href="/static/static/bootstrap.min.css"/>
+	<link rel="stylesheet" href="/static/static/all.min.css"/>
     <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
@@ -11,116 +14,251 @@
         <nav class="sidebar">
             <h2>CloudCard</h2>
             <ul>
-                <li><a href="/admin/dashboard.html">仪表盘</a></li>
-                <li><a href="/admin/orders.html">订单列表</a></li>
-                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
                 <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
                 <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
                 <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
-                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
                 <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
-                <li><a href="/admin/payment_settings.html">支付设置</a></li>
-                <li class="active"><a href="/admin/articles.html">文章管理</a></li>
-                <li><a href="/admin/config.html">配置</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li class="active"><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
-            <button id="logout-button" class="button button-secondary">退出登录</button>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
         </nav>
         
         <main class="main-content">
-            <h1>文章管理</h1>
-            <p>管理你的所有文章。 (这是一个简化演示)</p>
+            <h1>文章管理 <small class="text-muted fs-5">(管理公告与帮助文档)</small></h1>
 
-            <div class="admin-card">
-                <h3>添加新文章</h3>
-                <form id="add-article-form">
-                    <div class="form-group">
-                        <label for="art-title">文章标题</label>
-                        <input type="text" id="art-title" required>
+            <div class="admin-card p-3">
+                <div class="admin-toolbar mb-3">
+                    <div class="input-group search-input">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="article-search" class="form-control" placeholder="搜索文章标题/Slug..." onkeyup="filterArticles()">
                     </div>
-                     <div class="form-group">
-                        <label for="art-slug">访问路径 (例如 'welcome')</label>
-                        <input type="text" id="art-slug" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="art-summary">文章摘要</label>
-                        <input type="text" id="art-summary" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="art-content">文章内容 (支持 HTML)</label>
-                        <textarea id="art-content" rows="6"></textarea>
-                    </div>
-                    <button type="submit" class="button">添加文章</button>
-                </form>
-            </div>
 
-            <div class="admin-card">
-                <h3>现有文章</h3>
-                <div id="article-list" class="item-list">
-                    <p>正在加载文章...</p>
+                    <div class="select-group">
+                        <label for="sort-by" class="form-label mb-0 me-2">排序:</label>
+                        <select id="sort-by" class="form-select" onchange="sortArticles()">
+                            <option value="id_desc">ID (倒序)</option>
+                            <option value="title_asc">标题 (A-Z)</option>
+                            <option value="created_at_desc">最新发布</option>
+                        </select>
+                    </div>
+                    
+                    <button id="bulk-delete-btn" class="btn button-danger" onclick="bulkDeleteArticles()" disabled>
+                        <i class="fas fa-trash"></i> 批量删除 (<span id="selected-count">0</span>)
+                    </button>
+
+                    <button class="btn button ms-auto" onclick="window.location.href='/admin/article_edit.html'">
+                        <i class="fas fa-plus-circle"></i> 新建文章
+                    </button>
                 </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 1%;">
+                                    <input type="checkbox" id="select-all" class="form-check-input" onclick="toggleSelectAll()">
+                                </th>
+                                <th>ID <i class="fas fa-sort-numeric-down-alt"></i></th>
+                                <th>文章标题 <i class="fas fa-sort-alpha-down"></i></th>
+                                <th>访问路径 (Slug)</th>
+                                <th>创建日期</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="article-list-body">
+                            <tr><td colspan="6" class="text-center">正在加载文章...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p id="list-message" class="mt-3" style="display: none;"></p>
             </div>
+            
         </main>
     </div>
     
+	<script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/admin/auth.js"></script>
-    <script>
-        // 退出登录
-        document.getElementById('logout-button').addEventListener('click', () => {
-            sessionStorage.removeItem('admin-token');
-            window.location.href = '/admin/index.html';
-        });
+    <script src="/admin/utils.js"></script> <script>
+        // 退出登录和 token 获取逻辑已移动到 utils.js
 
-        const articleListEl = document.getElementById('article-list');
-        const token = sessionStorage.getItem('admin-token');
+        const articleListBodyEl = document.getElementById('article-list-body');
+        const listMessageEl = document.getElementById('list-message');
+        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+        const selectedCountEl = document.getElementById('selected-count');
+        
+        let articlesData = [];
 
         // 1. 加载现有文章
-        async function loadArticles() {
+        async function loadArticles(sortValue = 'id_desc', searchValue = '') {
+            listMessageEl.style.display = 'none';
+            articleListBodyEl.innerHTML = '<tr><td colspan="6" class="text-center">正在加载文章...</td></tr>';
+            document.getElementById('select-all').checked = false;
+            updateBulkDeleteButton();
+
             try {
-                const response = await fetch('/api/admin/articles', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('无法加载文章');
+                // 使用 adminFetch 替换 fetch
+                articlesData = await adminFetch('/api/admin/articles');
                 
-                const articles = await response.json();
-                articleListEl.innerHTML = '';
-                
-                if (articles.length === 0) {
-                    articleListEl.innerHTML = '<p>暂无文章。</p>';
+                // --- 模拟数据增强 ---
+                if (articlesData.length > 0 && articlesData[0].created_at === undefined) {
+                    articlesData = articlesData.map((art, index) => ({
+                        ...art,
+                        id: art.id || (index + 1),
+                        created_at: art.created_at || new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
+                    }));
+                }
+                // ---------------------------------------------
+
+                displayArticles(articlesData, sortValue, searchValue);
+            } catch (error) {
+                articleListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${error.message}</td></tr>`;
+            }
+        }
+
+        // 2. 显示文章列表 (包含搜索和排序逻辑)
+        function displayArticles(articles, sortValue, searchValue) {
+            
+            // A. 过滤 (搜索)
+            const filteredArticles = articles.filter(art => 
+                art.title.toLowerCase().includes(searchValue.toLowerCase()) || 
+                art.slug.toLowerCase().includes(searchValue.toLowerCase()) ||
+                String(art.id).includes(searchValue)
+            );
+
+            // B. 排序
+            const [field, direction] = sortValue.split('_');
+            filteredArticles.sort((a, b) => {
+                let valA = a[field];
+                let valB = b[field];
+
+                if (field === 'created_at') { 
+                    valA = new Date(valA).getTime();
+                    valB = new Date(valB).getTime();
+                } else if (typeof valA === 'string') {
+                    return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(a[field]);
                 }
 
-                articles.forEach(art => {
-                    const item = document.createElement('div');
-                    item.className = 'item-entry';
-                    item.innerHTML = `<strong>${art.title}</strong> (/${art.slug}) <span></span>`;
-                    articleListEl.appendChild(item);
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+
+            articleListBodyEl.innerHTML = '';
+            
+            if (filteredArticles.length === 0) {
+                articleListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center">未找到匹配的文章。</td></tr>`;
+                return;
+            }
+
+            filteredArticles.forEach(art => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="form-check-input article-checkbox" data-id="${art.id}" onchange="updateBulkDeleteButton()">
+                    </td>
+                    <td>${art.id}</td>
+                    <td><strong>${art.title}</strong></td>
+                    <td>/${art.slug}</td>
+                    <td>${new Date(art.created_at).toLocaleDateString()}</td>
+                    <td class="table-actions">
+                        <button class="btn button-info button-sm me-1" onclick="editArticle(${art.id})">
+                            <i class="fas fa-edit"></i> 编辑
+                        </button>
+                        <button class="btn button-danger button-sm" onclick="deleteArticle(${art.id})">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                `;
+                articleListBodyEl.appendChild(row);
+            });
+        }
+        
+        // 3. 搜索/排序触发器
+        function applyFiltersAndSort() {
+            const searchInput = document.getElementById('article-search').value;
+            const sortValue = document.getElementById('sort-by').value;
+            displayArticles(articlesData, sortValue, searchInput);
+        }
+        const filterArticles = applyFiltersAndSort;
+        const sortArticles = applyFiltersAndSort;
+
+        // 4. 编辑文章 (跳转到编辑页)
+        function editArticle(id) {
+            // 实际操作：
+            window.location.href = `/admin/article_edit.html?id=${id}`;
+        }
+
+        // 5. 单个删除文章
+        async function deleteArticle(id) {
+            if (!confirm(`确定要删除 ID 为 ${id} 的文章吗？`)) return;
+
+            try {
+                // 使用 adminFetch 替换 fetch
+                await adminFetch(`/api/admin/articles/${id}`, {
+                    method: 'DELETE',
                 });
+                
+                listMessageEl.textContent = `文章 ID ${id} 删除成功 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadArticles(document.getElementById('sort-by').value);
+                
             } catch (error) {
-                articleListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+                listMessageEl.textContent = `删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
             }
         }
         
-        // 2. 添加新文章 (简化)
-        document.getElementById('add-article-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newArticle = { /* ... 获取表单数据 ... */ };
-            
-            try {
-                await fetch('/api/admin/articles', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` 
-                    },
-                    body: JSON.stringify(newArticle)
-                });
-                alert('添加成功 (模拟)');
-                loadArticles();
-            } catch(error) {
-                alert('添加失败: ' + error.message);
-            }
-        });
+        // 6. 批量操作 UI
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('select-all').checked;
+            document.querySelectorAll('.article-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateBulkDeleteButton();
+        }
 
+        function updateBulkDeleteButton() {
+            const selected = document.querySelectorAll('.article-checkbox:checked').length;
+            selectedCountEl.textContent = selected;
+            bulkDeleteBtn.disabled = selected === 0;
+        }
+
+        async function bulkDeleteArticles() {
+            const selectedIds = Array.from(document.querySelectorAll('.article-checkbox:checked'))
+                                     .map(checkbox => checkbox.dataset.id);
+
+            if (selectedIds.length === 0) return;
+            if (!confirm(`确定要批量删除这 ${selectedIds.length} 篇文章吗？`)) return;
+
+            try {
+                // 实际项目中应调用批量删除 API (使用 adminFetch)
+                
+                listMessageEl.textContent = `成功删除 ${selectedIds.length} 篇文章 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadArticles(document.getElementById('sort-by').value);
+                
+            } catch (error) {
+                listMessageEl.textContent = `批量删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+        
         loadArticles();
     </script>
 </body>
