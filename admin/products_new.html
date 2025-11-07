@@ -73,16 +73,10 @@
 			    </div>
 			
 			    <hr class="my-4">
-			    <h4>6. 商品规格配置 (多维度/变体)</h4>
-			    <p class="text-muted fs-6">每一行代表一个规格，并设置其基础价格。如果仅需单规格商品，请删除多余的行。</p>
+			    <h4>6. 商品规格配置 (多规格)</h4>
+			    <p class="text-muted fs-6">每一行代表一个规格，并设置其基础价格。如果仅需单规格商品，请保留一行并留空“规格名称”。</p>
 
 			    <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="form-group">
-			                <label for="prod-spec-name">全局规格名称 (例如: 尺寸)</label>
-			                <input type="text" id="prod-spec-name" class="form-control" placeholder="留空则为单规格商品">
-			            </div>
-                    </div>
                     <div class="col-md-6">
                         <div class="form-group">
 			                <label for="prod-wholesale">批发价配置 (多行配置)</label>
@@ -90,6 +84,7 @@
 			                <small class="form-text text-muted">此配置将应用于所有规格/变体。</small>
 			            </div>
                     </div>
+                    <div class="col-md-6"></div> 
                 </div>
 
                 <div class="mt-3">
@@ -112,7 +107,7 @@
 			        <button type="button" class="btn btn-sm btn-outline-primary" id="add-variant-btn">
 			            <i class="fas fa-plus-circle"></i> + 新增规格
 			        </button>
-			        <small class="form-text text-muted d-block mt-2">如果**全局规格名称**为空，则只会使用第一行数据作为单规格商品数据。</small>
+			        <small class="form-text text-muted d-block mt-2">如果表格只有一行且规格名称为空，商品将被视为单规格。</small>
                 </div>
 
 			    <hr class="my-4">
@@ -189,8 +184,7 @@
         // 页面加载完成后调用
         loadCategories();
 
-        // ************************ 多规格配置逻辑 (最终版本) ************************
-        const specNameInput = document.getElementById('prod-spec-name');
+        // ************************ 规格配置逻辑 (无全局规格名) ************************
         const variantsContainer = document.getElementById('variants-container');
         const addVariantBtn = document.getElementById('add-variant-btn');
         const formMessage = document.getElementById('form-message');
@@ -201,7 +195,7 @@
             tr.className = 'variant-item';
             tr.innerHTML = `
                 <td>
-                    <input type="text" class="form-control spec-dimension-name" placeholder="例如: 红色" value="${name}" required>
+                    <input type="text" class="form-control spec-dimension-name" placeholder="例如: 颜色" value="${name}" required>
                 </td>
                 <td>
                     <input type="text" class="form-control spec-color-code" placeholder="#FF0000" value="${color}">
@@ -244,7 +238,7 @@
         if (variantsContainer.children.length === 0) {
             variantsContainer.appendChild(createVariantRow());
         }
-        // ************************ 结束多规格配置逻辑 (最终版本) ************************
+        // ************************ 结束规格配置逻辑 (无全局规格名) ************************
 
 
         const form = document.getElementById('add-product-form');
@@ -256,9 +250,6 @@
             // 7. 从 TinyMCE 获取内容
             const detailedDescription = tinymce.get('prod-desc').getContent();
             
-            const globalSpecName = specNameInput.value.trim();
-            const isMultiDimensional = globalSpecName !== ''; // 判断是否是多维度规格
-
             const variantRows = variantsContainer.querySelectorAll('.variant-item');
             
             const variantsData = [];
@@ -266,14 +257,10 @@
 
             // --- 校验和数据收集 ---
             let hasError = false;
-
-            if (isMultiDimensional && variantRows.length === 0) {
-                formMessage.textContent = '已填写全局规格名称，请至少添加一个规格。';
-                formMessage.className = 'mt-3 text-danger';
-                formMessage.style.display = 'block';
-                return;
-            }
             
+            // 确定是否是多规格商品：行数大于 1，或者行数等于 1 但规格名称不为空
+            const isMultiSpec = variantRows.length > 1 || (variantRows.length === 1 && variantRows[0].querySelector('.spec-dimension-name').value.trim() !== '');
+
             for (const row of variantRows) {
                 const specNameInput = row.querySelector('.spec-dimension-name');
                 const specColorCodeInput = row.querySelector('.spec-color-code');
@@ -289,34 +276,37 @@
                 const addon_price = parseFloat(addonInput.value) || 0;
                 const sales = parseInt(salesInput.value) || 0;
                 
-                // 校验名称
-                if (name === '') {
-                    formMessage.textContent = '规格名称不能为空。';
+                // 多规格模式下，规格名称不能留空
+                if (isMultiSpec && name === '') {
+                    formMessage.textContent = '多规格商品中规格名称不能为空。';
                     formMessage.className = 'mt-3 text-danger';
                     formMessage.style.display = 'block';
                     hasError = true;
                     break;
                 }
                 
-                // 校验价格
+                // 价格校验 (适用于所有模式)
                 if (isNaN(price) || price <= 0) {
-                    formMessage.textContent = `规格 "${name}" 的售价必须是有效数字且大于 0。`;
+                    formMessage.textContent = `规格 "${name || '默认/单规格'}" 的售价必须是有效数字且大于 0。`;
                     formMessage.className = 'mt-3 text-danger';
                     formMessage.style.display = 'block';
                     hasError = true;
                     break;
                 }
                 
-                // 收集数据
+                // 如果是单规格模式，且当前行名称为空，但价格有效，则跳过后续行，仅处理第一行
+                if (!isMultiSpec && variantsData.length > 0) {
+                    continue; 
+                }
+
                 variantsData.push({
-                    // 规格名称在单规格模式下会被覆盖为"默认规格"
                     name: name, 
-                    color_code: colorCode, // 新增的规格颜色代码字段
+                    color_code: colorCode, 
                     price: price, 
                     stock: stock, 
                     addon_price: addon_price, 
-                    wholesale_config: wholesaleConfig, // 引用表格上方的批发配置
-                    sales: sales, // 提交当前的销量值 (0)
+                    wholesale_config: wholesaleConfig, 
+                    sales: sales, 
                 });
             }
 
@@ -324,16 +314,15 @@
                 return;
             }
 
-            // --- 单规格数据处理 ---
-            if (!isMultiDimensional) {
-                // 如果是单规格模式 (Global Spec Name为空)，仅使用 variantsData 的第一行
+            // --- 最终单规格数据处理 ---
+            if (!isMultiSpec) {
+                // 如果是单规格，variantsData 应该只有第一行数据
                 if (variantsData.length > 1) {
                     variantsData.splice(1); 
                 }
-                // 确保单规格的名称为 "默认规格"
                 if (variantsData.length > 0) {
-                    variantsData[0].name = "默认规格";
-                    // 移除 color_code 字段，因为它只用于多规格变体
+                    // 强制单规格名称为 "默认规格"
+                    variantsData[0].name = "默认规格"; 
                     delete variantsData[0].color_code; 
                 }
             }
@@ -347,12 +336,11 @@
                 category_id: document.getElementById('prod-category').value, 
                 image_url: document.getElementById('prod-image').value,
                 description: detailedDescription,
-                // 全局规格名称 (例如: 尺寸)
-                spec_name: globalSpecName, 
+                // 不再提交全局规格名称
+                spec_name: '', 
                 sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
                 is_active: document.getElementById('prod-is-active').checked,
                 
-	            // 这里的 variants 字段承载了所有规格/变体的数据
 	            variants: variantsData 
 	        };
 
