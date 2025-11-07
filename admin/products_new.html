@@ -14,6 +14,13 @@
             padding: 0.3rem 0.5rem;
             height: 30px;
         }
+        /* 调整表格内textarea的样式 */
+        #variants-container textarea {
+            font-size: 0.75rem; /* 确保内容能在一小块区域内显示 */
+            height: 50px;
+            padding: 0.2rem;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
@@ -74,30 +81,20 @@
 			
 			    <hr class="my-4">
 			    <h4>6. 商品规格配置 (多规格)</h4>
-			    <p class="text-muted fs-6">每一行代表一个规格，并设置其基础价格。如果仅需单规格商品，请保留一行并留空“规格名称”。</p>
-
-			    <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="form-group">
-			                <label for="prod-wholesale">批发价配置 (多行配置)</label>
-			                <textarea id="prod-wholesale" rows="3" class="form-control" placeholder="例: 5=3&#10;10=2.5"></textarea>
-			                <small class="form-text text-muted">此配置将应用于所有规格/变体。</small>
-			            </div>
-                    </div>
-                    <div class="col-md-6"></div> 
-                </div>
+			    <p class="text-muted fs-6">每一行代表一个规格，并设置其价格和独立的批发价配置。如果仅需单规格商品，请保留一行并留空“规格名称”。</p>
 
                 <div class="mt-3">
 			        <label>规格列表</label>
 			        <table class="table table-bordered table-sm">
 			            <thead>
 			                <tr>
-			                    <th style="width: 20%;">规格名称</th>
-                                <th style="width: 15%;">规格字体颜色代码</th>
-			                    <th style="width: 15%;">售价 (元)</th>
-			                    <th style="width: 15%;">库存 (数量)</th>
+			                    <th style="width: 15%;">规格名称</th>
+                                <th style="width: 10%;">规格字体颜色代码</th>
+			                    <th style="width: 10%;">售价 (元)</th>
+                                <th style="width: 25%;">批发价配置</th>
+			                    <th style="width: 10%;">库存 (数量)</th>
 			                    <th style="width: 10%;">自选加价 (元)</th>
-                                <th style="width: 10%;">销量</th>
+                                <th style="width: 5%;">销量</th>
 			                    <th style="width: 15%;">操作</th>
 			                </tr>
 			            </thead>
@@ -107,7 +104,7 @@
 			        <button type="button" class="btn btn-sm btn-outline-primary" id="add-variant-btn">
 			            <i class="fas fa-plus-circle"></i> + 新增规格
 			        </button>
-			        <small class="form-text text-muted d-block mt-2">如果表格只有一行且规格名称为空，商品将被视为单规格。</small>
+			        <small class="form-text text-muted d-block mt-2">批发价配置格式：一行一个，例: 5=3。</small>
                 </div>
 
 			    <hr class="my-4">
@@ -184,13 +181,13 @@
         // 页面加载完成后调用
         loadCategories();
 
-        // ************************ 规格配置逻辑 (无全局规格名) ************************
+        // ************************ 规格配置逻辑 (批发价移入表格) ************************
         const variantsContainer = document.getElementById('variants-container');
         const addVariantBtn = document.getElementById('add-variant-btn');
         const formMessage = document.getElementById('form-message');
 
         // 规格变体模板 - 创建一个表格行 (<tr>)
-        function createVariantRow(name = '', color = '', price = '', stock = '0', addon = '0.00', sales = '0') {
+        function createVariantRow(name = '', color = '', price = '', wholesale = '', stock = '0', addon = '0.00', sales = '0') {
             const tr = document.createElement('tr');
             tr.className = 'variant-item';
             tr.innerHTML = `
@@ -202,6 +199,9 @@
                 </td>
                 <td>
                     <input type="number" step="0.01" class="form-control variant-price" placeholder="0.00" value="${price}" required>
+                </td>
+                <td>
+                    <textarea class="form-control variant-wholesale-config" rows="2" placeholder="例: 5=3">${wholesale}</textarea>
                 </td>
                 <td>
                     <input type="number" class="form-control variant-stock" placeholder="0" value="${stock}">
@@ -238,7 +238,7 @@
         if (variantsContainer.children.length === 0) {
             variantsContainer.appendChild(createVariantRow());
         }
-        // ************************ 结束规格配置逻辑 (无全局规格名) ************************
+        // ************************ 结束规格配置逻辑 (批发价移入表格) ************************
 
 
         const form = document.getElementById('add-product-form');
@@ -253,18 +253,18 @@
             const variantRows = variantsContainer.querySelectorAll('.variant-item');
             
             const variantsData = [];
-            const wholesaleConfig = document.getElementById('prod-wholesale').value;
+
+            // 确定是否是多规格商品：行数大于 1，或者行数等于 1 但规格名称不为空
+            const isMultiSpec = variantRows.length > 1 || (variantRows.length === 1 && variantRows[0].querySelector('.spec-dimension-name').value.trim() !== '');
 
             // --- 校验和数据收集 ---
             let hasError = false;
             
-            // 确定是否是多规格商品：行数大于 1，或者行数等于 1 但规格名称不为空
-            const isMultiSpec = variantRows.length > 1 || (variantRows.length === 1 && variantRows[0].querySelector('.spec-dimension-name').value.trim() !== '');
-
             for (const row of variantRows) {
                 const specNameInput = row.querySelector('.spec-dimension-name');
                 const specColorCodeInput = row.querySelector('.spec-color-code');
                 const priceInput = row.querySelector('.variant-price');
+                const wholesaleInput = row.querySelector('.variant-wholesale-config');
                 const stockInput = row.querySelector('.variant-stock');
                 const addonInput = row.querySelector('.variant-addon-price');
                 const salesInput = row.querySelector('.variant-sales');
@@ -272,6 +272,7 @@
                 const name = specNameInput.value.trim();
                 const colorCode = specColorCodeInput.value.trim();
                 const price = parseFloat(priceInput.value);
+                const wholesaleConfig = wholesaleInput.value.trim(); // 获取独立的批发配置
                 const stock = parseInt(stockInput.value) || 0;
                 const addon_price = parseFloat(addonInput.value) || 0;
                 const sales = parseInt(salesInput.value) || 0;
@@ -298,14 +299,14 @@
                 if (!isMultiSpec && variantsData.length > 0) {
                     continue; 
                 }
-
+                
                 variantsData.push({
                     name: name, 
                     color_code: colorCode, 
                     price: price, 
                     stock: stock, 
                     addon_price: addon_price, 
-                    wholesale_config: wholesaleConfig, 
+                    wholesale_config: wholesaleConfig, // 提交当前的批发配置
                     sales: sales, 
                 });
             }
@@ -336,7 +337,7 @@
                 category_id: document.getElementById('prod-category').value, 
                 image_url: document.getElementById('prod-image').value,
                 description: detailedDescription,
-                // 不再提交全局规格名称
+                // 无全局规格名称
                 spec_name: '', 
                 sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
                 is_active: document.getElementById('prod-is-active').checked,
