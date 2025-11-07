@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡密列表</title>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html">仪表盘</a></li>
+                <li><a href="/admin/orders.html">订单列表</a></li>
+                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
+                <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
+                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
+                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-item active"><a href="/admin/cards_list.html">卡密列表</a></li>
+                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
+                <li><a href="/admin/payment_settings.html">支付设置</a></li>
+                <li><a href="/admin/articles.html">文章管理</a></li>
+                <li><a href="/admin/config.html">配置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">退出登录</button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>卡密列表</h1>
+            <p>查看所有导入的卡密和它们的使用状态。 (仅显示前 1000 条)</p>
+
+            <div class="admin-card">
+                <h3>现有卡密</h3>
+                <div id="card-list" class="item-list">
+                    <p>正在加载卡密...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/admin/auth.js"></script>
+    <script>
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('admin-token');
+            window.location.href = '/admin/index.html';
+        });
+
+        const cardListEl = document.getElementById('card-list');
+        const token = sessionStorage.getItem('admin-token');
+
+        // 状态映射
+        const statusMap = {
+            0: '<span style="color: #10b981;">未使用</span>',
+            1: '<span style="color: #ef4444;">已使用</span>'
+        };
+
+        async function loadCards() {
+            try {
+                const response = await fetch('/api/admin/cards', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('无法加载卡密');
+                
+                const cards = await response.json();
+                cardListEl.innerHTML = '';
+                
+                if (cards.length === 0) {
+                    cardListEl.innerHTML = '<p>暂无卡密。</p>';
+                }
+
+                cards.forEach(card => {
+                    const statusHtml = statusMap[card.is_used] || '未知';
+                    const item = document.createElement('div');
+                    item.className = 'item-entry';
+                    // 实际应用中， variant_id 应该被替换为规格名称
+                    item.innerHTML = `
+                        <div>
+                            <strong>${card.card_key}</strong> 
+                            <small>(规格ID: ${card.variant_id})</small>
+                            <br>
+                            ${statusHtml} | 导入时间: ${new Date(card.created_at).toLocaleDateString()}
+                        </div>
+                    `;
+                    cardListEl.appendChild(item);
+                });
+            } catch (error) {
+                cardListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+            }
+        }
+        
+        loadCards();
+    </script>
+</body>
+</html>
