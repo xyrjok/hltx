@@ -55,9 +55,10 @@ CREATE TABLE Orders (
 </code></pre>
 
 <h3>变量和机密</h3>		
-类型	名称	值
-纯文本	ADMIN_PASS	123456
-纯文本	ADMIN_TOKEN	super-secret-admin-token-xyz
-纯文本	ADMIN_USER	admin
+| 类型  | 名称  | 值  |
+| ------------ | ------------ | ------------ |
+|  纯文本 | DMIN_PASS  | 123456  |
+|  纯文本 |  ADMIN_TOKEN | super-secret-admin-token-xyz  |
+|  纯文本 |  ADMIN_USER | admin  |
 
 
