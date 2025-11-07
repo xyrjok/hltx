@@ -189,6 +189,21 @@ body {
 .item-entry:last-child {
     border-bottom: none;
 }
+.sidebar li.submenu-title a {
+    font-weight: bold;
+    color: #bdc3c7; /* Lighter color for group titles */
+    cursor: default;
+    background: none;
+    margin-top: 1rem;
+    margin-bottom: 0;
+    padding-left: 0.5rem;
+}
+.sidebar li.submenu-title a:hover {
+    background: none;
+}
+.sidebar li.submenu-item a {
+    padding-left: 2rem; /* Indentation */
+}
 
 /* 6. 辅助类 */
 .error-message {
