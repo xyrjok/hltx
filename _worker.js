@@ -1,5 +1,5 @@
 // _worker.js: Cloudflare Worker D1 数据库集成版本
-// 此文件已移除所有 Mock 数据和逻辑，改为通过 env.DB 连接 Cloudflare D1 数据库。
+// 此文件已移除所有 Mock 数据和逻辑，改为通过 env.MY_HLTX 连接 Cloudflare D1 数据库。
 // 请确保在 Worker 设置中绑定了一个名为 'DB' 的 D1 数据库，并设置了 ADMIN_USER, ADMIN_PASS, ADMIN_TOKEN 环境变量。
 
 import { Router } from 'itty-router';
@@ -62,7 +62,7 @@ router.post('/api/auth/login', async (request, env) => {
 // 获取所有分类
 router.get('/api/categories', async (request, env) => {
     try {
-        const { results } = await env.DB.prepare(
+        const { results } = await env.MY_HLTX.prepare(
             "SELECT id, name, slug FROM Categories"
         ).all();
         return json(results);
@@ -74,7 +74,7 @@ router.get('/api/categories', async (request, env) => {
 // 获取所有商品列表 (仅上架)
 router.get('/api/products', async (request, env) => {
     try {
-        const { results } = await env.DB.prepare(
+        const { results } = await env.MY_HLTX.prepare(
             "SELECT id, name, short_description, base_price, image_url FROM Products WHERE is_active = 1 ORDER BY sort_weight DESC"
         ).all();
         return json(results);
@@ -86,7 +86,7 @@ router.get('/api/products', async (request, env) => {
 // 获取单个商品详情
 router.get('/api/products/:id', async ({ params }, env) => {
     try {
-        const { results } = await env.DB.prepare(
+        const { results } = await env.MY_HLTX.prepare(
             "SELECT * FROM Products WHERE id = ?1 AND is_active = 1"
         ).bind(params.id).all();
 
@@ -107,7 +107,7 @@ router.get('/api/products/:id', async ({ params }, env) => {
         
         // 如果没有 variants_json，则从 ProductVariants 表查询 (为了兼容)
         if (!product.variants || product.variants.length === 0) {
-            const { results: variants } = await env.DB.prepare(
+            const { results: variants } = await env.MY_HLTX.prepare(
                 "SELECT id, name, price_adjustment, stock_count FROM ProductVariants WHERE product_id = ?1"
             ).bind(params.id).all();
              product.variants = variants;
@@ -123,7 +123,7 @@ router.get('/api/products/:id', async ({ params }, env) => {
 // 获取文章列表
 router.get('/api/articles', async (request, env) => {
     try {
-        const { results } = await env.DB.prepare(
+        const { results } = await env.MY_HLTX.prepare(
             "SELECT id, title, slug, summary, created_at FROM Articles ORDER BY created_at DESC"
         ).all();
         return json(results);
@@ -135,7 +135,7 @@ router.get('/api/articles', async (request, env) => {
 // 获取单个文章详情
 router.get('/api/articles/:slug', async ({ params }, env) => {
     try {
-        const article = await env.DB.prepare(
+        const article = await env.MY_HLTX.prepare(
             "SELECT id, title, slug, summary, content, created_at FROM Articles WHERE slug = ?1"
         ).bind(params.slug).first();
 
@@ -155,7 +155,7 @@ router.post('/api/orders', async (request, env) => {
 
     try {
         // 1. 获取规格和基础信息
-        const { results: variantResults } = await env.DB.prepare(`
+        const { results: variantResults } = await env.MY_HLTX.prepare(`
             SELECT 
                 pv.price_adjustment, pv.stock_count, p.id AS product_id, 
                 p.base_price, p.addon_price, p.name AS product_name, pv.name AS variant_name
@@ -168,7 +168,7 @@ router.post('/api/orders', async (request, env) => {
         const variant = variantResults[0];
 
         // 2. 检查库存 (查找一个未使用的卡密)
-        const availableCard = await env.DB.prepare(`
+        const availableCard = await env.MY_HLTX.prepare(`
             SELECT id, card_key FROM Cards 
             WHERE variant_id = ?1 AND is_used = 0 
             LIMIT 1
@@ -187,18 +187,18 @@ router.post('/api/orders', async (request, env) => {
         // 使用事务确保卡密状态和订单创建的原子性 (D1目前不支持标准事务，但可以使用 Batch)
         
         // 插入订单
-        await env.DB.prepare(`
+        await env.MY_HLTX.prepare(`
             INSERT INTO Orders (id, variant_id, total_amount, status, payment_id, delivered_card)
             VALUES (?1, ?2, ?3, 'paid', ?4, ?5)
         `).bind(orderId, variantIdInt, totalAmount, paymentId, availableCard.card_key).run();
         
         // 5. 将卡密标记为已使用
-        await env.DB.prepare(`
+        await env.MY_HLTX.prepare(`
             UPDATE Cards SET is_used = 1, used_at = datetime('now') WHERE id = ?1
         `).bind(availableCard.id).run();
         
         // 6. 减少规格库存
-        await env.DB.prepare(
+        await env.MY_HLTX.prepare(
              "UPDATE ProductVariants SET stock_count = stock_count - 1 WHERE id = ?1"
         ).bind(variantIdInt).run();
 
@@ -221,7 +221,7 @@ router.post('/api/orders', async (request, env) => {
 // 获取订单详情
 router.get('/api/orders/:id', async ({ params }, env) => {
     try {
-        const order = await env.DB.prepare(
+        const order = await env.MY_HLTX.prepare(
             "SELECT id, status, delivered_card FROM Orders WHERE id = ?1"
         ).bind(params.id).first();
 
@@ -242,7 +242,7 @@ router.get('/api/orders/:id', async ({ params }, env) => {
 // 获取所有商品列表
 router.get('/api/admin/products', withAuth, async (request, env) => {
     try {
-        const { results } = await env.DB.prepare(
+        const { results } = await env.MY_HLTX.prepare(
             "SELECT id, name, base_price, is_active, sort_weight FROM Products ORDER BY id DESC"
         ).all();
         return json(results);
@@ -275,7 +275,7 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
     
     // --- D1 数据库插入 ---
     try {
-        const stmt = env.DB.prepare(
+        const stmt = env.MY_HLTX.prepare(
             `INSERT INTO Products (
                 name, description, base_price, image_url, variants_json, 
                 short_description, keywords, category_id, stock, 
@@ -299,7 +299,7 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
             isActiveInt              
         ).run();
 
-        const result = await env.DB.prepare("SELECT last_insert_rowid() as id").first();
+        const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
         return json({ id: result.id, success: true }, { status: 201 });
     } catch (e) {
         console.error("D1 Insert Error:", e);
@@ -312,7 +312,7 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
 // 删除商品
 router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     try {
-        const result = await env.DB.prepare("DELETE FROM Products WHERE id = ?1").bind(params.id).run();
+        const result = await env.MY_HLTX.prepare("DELETE FROM Products WHERE id = ?1").bind(params.id).run();
         // 检查删除是否成功
         if (result.changes === 0) {
             return error(404, '商品未找到或删除失败');
@@ -327,7 +327,7 @@ router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
 // 获取所有文章 (后台管理)
 router.get('/api/admin/articles', withAuth, async (request, env) => {
     try {
-        const { results } = await env.DB.prepare("SELECT id, title, created_at FROM Articles ORDER BY created_at DESC").all();
+        const { results } = await env.MY_HLTX.prepare("SELECT id, title, created_at FROM Articles ORDER BY created_at DESC").all();
         return json(results);
     } catch (e) {
         return error(500, '获取文章列表失败: ' + e.message);
@@ -344,11 +344,11 @@ router.post('/api/admin/articles', withAuth, async (request, env) => {
     }
 
     try {
-        await env.DB.prepare(
+        await env.MY_HLTX.prepare(
             "INSERT INTO Articles (title, slug, summary, content) VALUES (?1, ?2, ?3, ?4)"
         ).bind(title, slug, summary || '', content).run();
         
-        const result = await env.DB.prepare("SELECT last_insert_rowid() as id").first();
+        const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
         return json({ id: result.id, success: true }, { status: 201 });
     } catch (e) {
         return error(500, '创建文章失败: ' + e.message);
@@ -359,7 +359,7 @@ router.post('/api/admin/articles', withAuth, async (request, env) => {
 // 获取所有分类 (后台管理)
 router.get('/api/admin/categories', withAuth, async (request, env) => {
     try {
-        const { results } = await env.DB.prepare("SELECT * FROM Categories").all();
+        const { results } = await env.MY_HLTX.prepare("SELECT * FROM Categories").all();
         return json(results);
     } catch (e) {
         return error(500, '获取分类失败: ' + e.message);
@@ -376,11 +376,11 @@ router.post('/api/admin/categories', withAuth, async (request, env) => {
     }
 
     try {
-        await env.DB.prepare(
+        await env.MY_HLTX.prepare(
             "INSERT INTO Categories (name, slug) VALUES (?1, ?2)"
         ).bind(name, slug).run();
         
-        const result = await env.DB.prepare("SELECT last_insert_rowid() as id").first();
+        const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
         return json({ id: result.id, success: true }, { status: 201 });
     } catch (e) {
         return error(500, '创建分类失败: ' + e.message);
@@ -391,7 +391,7 @@ router.post('/api/admin/categories', withAuth, async (request, env) => {
 // 获取所有订单 (后台管理)
 router.get('/api/admin/orders', withAuth, async (request, env) => {
     try {
-        const { results } = await env.DB.prepare(`
+        const { results } = await env.MY_HLTX.prepare(`
             SELECT 
                 o.id AS order_id, 
                 o.total_amount, 
@@ -421,7 +421,7 @@ router.get('/api/admin/orders', withAuth, async (request, env) => {
 // 获取卡密列表 (后台管理)
 router.get('/api/admin/cards', withAuth, async (request, env) => {
     try {
-        const { results } = await env.DB.prepare("SELECT * FROM Cards ORDER BY id DESC").all();
+        const { results } = await env.MY_HLTX.prepare("SELECT * FROM Cards ORDER BY id DESC").all();
         return json(results);
     } catch (e) {
         return error(500, '获取卡密列表失败: ' + e.message);
@@ -439,11 +439,11 @@ router.post('/api/admin/cards/import', withAuth, async (request, env) => {
     }
 
     try {
-        const variant = await env.DB.prepare("SELECT id FROM ProductVariants WHERE id = ?1").bind(variant_id).first();
+        const variant = await env.MY_HLTX.prepare("SELECT id FROM ProductVariants WHERE id = ?1").bind(variant_id).first();
         if (!variant) return error(404, 'Variant not found');
 
         let addedCount = 0;
-        const insertCardStmt = env.DB.prepare(
+        const insertCardStmt = env.MY_HLTX.prepare(
             "INSERT INTO Cards (variant_id, card_key) VALUES (?1, ?2)"
         );
         
@@ -457,7 +457,7 @@ router.post('/api/admin/cards/import', withAuth, async (request, env) => {
         });
 
         // 更新 ProductVariant 的库存 (stock_count)
-        await env.DB.prepare(
+        await env.MY_HLTX.prepare(
             "UPDATE ProductVariants SET stock_count = stock_count + ?1 WHERE id = ?2"
         ).bind(addedCount, variant_id).run();
 
@@ -471,7 +471,7 @@ router.post('/api/admin/cards/import', withAuth, async (request, env) => {
 // 获取支付设置 (后台管理)
 router.get('/api/admin/settings/payment', withAuth, async (request, env) => {
     try {
-        const { results } = await env.DB.prepare("SELECT key, value FROM PaymentSettings").all();
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
         
         const settings = results.reduce((acc, row) => {
             acc[row.key] = row.value;
@@ -492,14 +492,14 @@ router.post('/api/admin/settings/payment', withAuth, async (request, env) => {
     try {
         // 使用 REPLACE INTO 实现 UPSERT
         const promises = Object.entries(updates).map(([key, value]) => {
-            return env.DB.prepare(
+            return env.MY_HLTX.prepare(
                 "REPLACE INTO PaymentSettings (key, value) VALUES (?1, ?2)"
             ).bind(key, value).run();
         });
 
         await Promise.all(promises);
 
-        const { results } = await env.DB.prepare("SELECT key, value FROM PaymentSettings").all();
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
         const newSettings = results.reduce((acc, row) => {
             acc[row.key] = row.value;
             return acc;
@@ -515,7 +515,7 @@ router.post('/api/admin/settings/payment', withAuth, async (request, env) => {
 // 获取通用配置 (后台管理)
 router.get('/api/admin/settings/config', withAuth, async (request, env) => {
     try {
-        const { results } = await env.DB.prepare("SELECT key, value FROM Configurations").all();
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM Configurations").all();
         
         const configurations = results.reduce((acc, row) => {
             acc[row.key] = row.value;
@@ -536,14 +536,14 @@ router.post('/api/admin/settings/config', withAuth, async (request, env) => {
     try {
         // 使用 REPLACE INTO 实现 UPSERT
         const promises = Object.entries(updates).map(([key, value]) => {
-            return env.DB.prepare(
+            return env.MY_HLTX.prepare(
                 "REPLACE INTO Configurations (key, value) VALUES (?1, ?2)"
             ).bind(key, value).run();
         });
 
         await Promise.all(promises);
 
-        const { results } = await env.DB.prepare("SELECT key, value FROM Configurations").all();
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM Configurations").all();
         const newConfigurations = results.reduce((acc, row) => {
             acc[row.key] = row.value;
             return acc;
@@ -569,7 +569,7 @@ export default {
      * @param {Env} env 环境变量和绑定
      */
     async fetch(request, env) {
-        if (!env.DB) {
+        if (!env.MY_HLTX) {
             return error(500, "Worker配置错误: 缺少D1数据库绑定'DB'");
         }
         
