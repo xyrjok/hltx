@@ -50,6 +50,17 @@ const router = Router();
 
 // ... (GET /api/categories 到 GET /api/orders/:id 保持不变) ...
 
+// GET /api/categories
+router.get('/api/categories', () => {
+    // 仅返回需要的字段
+    const categoryList = mockCategories.map(c => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+    }));
+    return json(categoryList);
+});
+
 // GET /api/products
 router.get('/api/products', () => {
     const productList = mockProducts.map(p => ({
