@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分类管理</title>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html">仪表盘</a></li>
+                <li><a href="/admin/products.html">商品管理</a></li>
+                <li><a href="/admin/articles.html">文章管理</a></li>
+                <li class="active"><a href="/admin/categories.html">分类管理</a></li>
+                <li><a href="/admin/articles.html">支付设置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">退出登录</button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>分类管理</h1>
+            <p>管理你的所有商品分类。 (这是一个简化演示)</p>
+
+            <div class="admin-card">
+                <h3>添加新分类</h3>
+                <form id="add-category-form">
+                    <div class="form-group">
+                        <label for="cat-name">分类名称</label>
+                        <input type="text" id="cat-name" required>
+                    </div>
+                     <div class="form-group">
+                        <label for="cat-slug">访问路径 (例如 'study')</label>
+                        <input type="text" id="cat-slug" required>
+                    </div>
+                    <button type="submit" class="button">添加分类</button>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <h3>现有分类</h3>
+                <div id="category-list" class="item-list">
+                    <p>正在加载分类...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/admin/auth.js"></script>
+    <script>
+        // 退出登录
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('admin-token');
+            window.location.href = '/admin/index.html';
+        });
+
+        const categoryListEl = document.getElementById('category-list');
+        const token = sessionStorage.getItem('admin-token');
+        const form = document.getElementById('add-category-form');
+
+        // 1. 加载现有分类
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/admin/categories', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('无法加载分类');
+                
+                const categories = await response.json();
+                categoryListEl.innerHTML = '';
+                
+                if (categories.length === 0) {
+                    categoryListEl.innerHTML = '<p>暂无分类。</p>';
+                }
+
+                categories.forEach(cat => {
+                    const item = document.createElement('div');
+                    item.className = 'item-entry';
+                    item.innerHTML = `<strong>${cat.name}</strong> (/${cat.slug})`; 
+                    categoryListEl.appendChild(item);
+                });
+            } catch (error) {
+                categoryListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+            }
+        }
+        
+        // 2. 添加新分类 (简化)
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newCategory = {
+                name: document.getElementById('cat-name').value,
+                slug: document.getElementById('cat-slug').value,
+            };
+            
+            try {
+                const response = await fetch('/api/admin/categories', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify(newCategory)
+                });
+                
+                if (!response.ok) throw new Error('添加失败');
+                
+                form.reset();
+                alert('添加成功 (模拟)');
+                loadCategories();
+            } catch(error) {
+                alert('添加失败: ' + error.message);
+            }
+        });
+
+        loadCategories();
+    </script>
+</body>
+</html>
