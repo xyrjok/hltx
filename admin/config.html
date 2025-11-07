@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>配置</title>
+    <title>配置 - CloudCard</title>
+    
+	<link rel="stylesheet" href="/static/bootstrap.min.css"/>
+	<link rel="stylesheet" href="/static/all.min.css"/>    
     <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
@@ -11,73 +14,75 @@
         <nav class="sidebar">
             <h2>CloudCard</h2>
             <ul>
-                <li><a href="/admin/dashboard.html">仪表盘</a></li>
-                <li><a href="/admin/orders.html">订单列表</a></li>
-                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
                 <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
                 <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
                 <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
-                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
                 <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
-                <li><a href="/admin/payment_settings.html">支付设置</a></li>
-                <li><a href="/admin/articles.html">文章管理</a></li>
-                <li class="active"><a href="/admin/config.html">配置</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li class="active"><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
-            <button id="logout-button" class="button button-secondary">退出登录</button>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
         </nav>
         
         <main class="main-content">
-            <h1>配置</h1>
+            <h1>配置 <small class="text-muted fs-5">(通用网站信息)</small></h1>
             <p>配置网站的通用信息。</p>
 
-            <div class="admin-card">
+            <div class="admin-card p-4">
                 <form id="general-config-form">
-                    <h3>网站信息</h3>
+                    <h3 class="mb-3"><i class="fas fa-info-circle"></i> 网站信息</h3>
                     <div class="form-group">
                         <label for="site_title">网站名称</label>
-                        <input type="text" id="site_title" required>
+                        <input type="text" id="site_title" class="form-control" required>
                     </div>
                     <div class="form-group">
                         <label for="support_email">客服邮箱</label>
-                        <input type="text" id="support_email">
+                        <input type="text" id="support_email" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="announcement">首页公告 (支持 HTML)</label>
+                        <textarea id="announcement" rows="4" class="form-control"></textarea>
                     </div>
                     
-                    <button type="submit" class="button">保存配置</button>
-                    <p id="form-message" style="display: none; margin-top: 10px;"></p>
+                    <button type="submit" class="button mt-3">
+                        <i class="fas fa-save"></i> 保存配置
+                    </button>
+                    <p id="form-message" class="mt-3" style="display: none;"></p>
                 </form>
             </div>
         </main>
     </div>
     
+	<script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/admin/auth.js"></script>
+    <script src="/admin/utils.js"></script>
     <script>
-        document.getElementById('logout-button').addEventListener('click', () => {
-            sessionStorage.removeItem('admin-token');
-            window.location.href = '/admin/index.html';
-        });
+        // 退出登录逻辑已在 utils.js 中初始化
 
         const form = document.getElementById('general-config-form');
         const formMessage = document.getElementById('form-message');
-        const token = sessionStorage.getItem('admin-token');
 
         // 1. 加载现有配置
         async function loadConfig() {
             formMessage.style.display = 'none';
             try {
-                const response = await fetch('/api/admin/settings/config', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('无法加载配置');
-                
-                const config = await response.json();
+                const config = await adminFetch('/api/admin/settings/config');
                 
                 document.getElementById('site_title').value = config.site_title || '';
                 document.getElementById('support_email').value = config.support_email || '';
+                document.getElementById('announcement').value = config.announcement || '';
                 
             } catch (error) {
                 formMessage.textContent = '加载失败: ' + error.message;
-                formMessage.style.color = 'red';
+                formMessage.className = 'mt-3 text-danger';
                 formMessage.style.display = 'block';
             }
         }
@@ -90,27 +95,22 @@
             const updates = {
                 site_title: document.getElementById('site_title').value,
                 support_email: document.getElementById('support_email').value,
+                announcement: document.getElementById('announcement').value,
             };
 
             try {
-                const response = await fetch('/api/admin/settings/config', {
+                await adminFetch('/api/admin/settings/config', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` 
-                    },
                     body: JSON.stringify(updates)
                 });
 
-                if (!response.ok) throw new Error('保存失败');
-                
-                formMessage.textContent = '配置已保存成功！';
-                formMessage.style.color = 'green';
+                formMessage.textContent = '配置已保存成功！ (模拟)';
+                formMessage.className = 'mt-3 text-success';
                 formMessage.style.display = 'block';
                 
             } catch (error) {
                 formMessage.textContent = error.message;
-                formMessage.style.color = 'red';
+                formMessage.className = 'mt-3 text-danger';
                 formMessage.style.display = 'block';
             }
         });
