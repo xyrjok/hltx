@@ -67,7 +67,7 @@
 			
 			    <hr class="my-4">
 			    <h4>6. 商品规格配置 (基础/默认信息)</h4>
-			    <p class="text-muted fs-6">若填写了规格名称和变体，下方价格/库存/加价配置将作为默认值，后续可在“商品列表”中为每个变体单独配置。</p>
+			    <p class="text-muted fs-6">请填写**规格名称**（例如：颜色）和**默认价格**，然后添加**规格变体**（例如：红色、蓝色）。</p>
 
 			    <div class="row g-3 align-items-end">
 			        <div class="col-md-3">
@@ -105,15 +105,15 @@
 			            </div>
                     </div>
                     
-			        <div class="col-md-6" id="multi-variant-area" style="display: none;">
+			        <div class="col-md-6">
 			            <div class="form-group">
 			                <label>规格变体列表 (例如: 红色, 蓝色)</label>
 			                <div id="variants-container">
 			                    </div>
 			                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="add-variant-btn">
-			                    <i class="fas fa-plus-circle"></i> + 新增
+			                    <i class="fas fa-plus-circle"></i> + 新增规格
 			                </button>
-			                <small class="form-text text-muted">创建后请在“商品列表”为每个变体设置价格/库存。</small>
+			                <small class="form-text text-muted">如果**规格名称**为空，变体列表将被忽略，视为单规格商品。</small>
 			            </div>
 			        </div>
                 </div>
@@ -194,10 +194,8 @@
 
         // ************************ 新增多规格配置逻辑 (更新后) ************************
         const specNameInput = document.getElementById('prod-spec-name');
-        const multiVariantArea = document.getElementById('multi-variant-area');
         const variantsContainer = document.getElementById('variants-container');
         const addVariantBtn = document.getElementById('add-variant-btn');
-        const basePriceInput = document.getElementById('prod-base-price');
 
         // 规格变体模板
         function createVariantInput(name = '') {
@@ -211,38 +209,19 @@
             `;
             div.querySelector('.remove-variant-btn').addEventListener('click', () => {
                 div.remove();
-                toggleSpecFields();
             });
             return div;
         }
-
-        // 切换规格变体区域的显示状态
-        function toggleSpecFields() {
-            const isMultiSpec = specNameInput.value.trim() !== '';
-            
-            multiVariantArea.style.display = isMultiSpec ? 'block' : 'none';
-
-            // 如果从多规格切回单规格，且变体列表不为空，清空它
-            if (!isMultiSpec) {
-                while (variantsContainer.firstChild) {
-                    variantsContainer.removeChild(variantsContainer.firstChild);
-                }
-            } else if (variantsContainer.children.length === 0) {
-                 // 如果是多规格模式但变体列表为空，添加一个默认变体
-                 variantsContainer.appendChild(createVariantInput('默认'));
-            }
-        }
-
-        // 监听规格名称输入变化
-        specNameInput.addEventListener('input', toggleSpecFields);
 
         // 监听添加变体按钮
         addVariantBtn.addEventListener('click', () => {
             variantsContainer.appendChild(createVariantInput());
         });
 
-        // 页面初始化时执行一次
-        toggleSpecFields();
+        // 页面初始化时添加一个默认空变体，方便用户输入
+        if (variantsContainer.children.length === 0) {
+            variantsContainer.appendChild(createVariantInput(''));
+        }
         // ************************ 结束多规格配置逻辑 (更新后) ************************
 
 
@@ -296,25 +275,27 @@
 	            variants: (() => {
                     const variantInputs = variantsContainer.querySelectorAll('.variant-name');
                     
-                    if (isMultiSpec && variantInputs.length === 0) {
-                        formMessage.textContent = '多规格商品至少需要一个变体名称';
-                        formMessage.className = 'mt-3 text-danger';
-                        formMessage.style.display = 'block';
-                        // 阻止提交，但不抛出错误，而是通过 message 提示
-                        return null; 
-                    }
-                    
                     if (isMultiSpec) {
+                        // 过滤掉空的变体名称
+                        const validVariantInputs = Array.from(variantInputs).filter(input => input.value.trim() !== '');
+
+                        if (validVariantInputs.length === 0) {
+                             formMessage.textContent = '已填写规格名称，请至少添加或填写一个变体名称。';
+                             formMessage.className = 'mt-3 text-danger';
+                             formMessage.style.display = 'block';
+                             return null;
+                        }
+
                         // 多规格商品: 提交变体名称，并使用基础配置作为默认值
-                        return Array.from(variantInputs).map(input => ({
-                            name: input.value,
+                        return validVariantInputs.map(input => ({
+                            name: input.value.trim(),
                             price: basePrice, // 使用基础售价作为所有变体的默认价格
                             stock: parseInt(document.getElementById('prod-stock').value) || 0, 
                             addon_price: parseFloat(document.getElementById('prod-addon-price').value) || 0, 
                             wholesale_config: document.getElementById('prod-wholesale').value,
                         }));
                     } else {
-                        // 单规格商品: 只有一个 "默认规格"
+                        // 单规格商品: 只有一个 "默认规格"，忽略 variantsContainer 的内容
                         return [{ 
                             name: "默认规格", 
                             price: basePrice, 
@@ -339,8 +320,10 @@
                 });
 
                 form.reset();
-                // 确保在 reset 后规格区域恢复到单规格状态
-                toggleSpecFields(); 
+                // 确保在 reset 后重新添加默认空变体
+                if (variantsContainer.children.length === 0) {
+                    variantsContainer.appendChild(createVariantInput(''));
+                }
                 formMessage.textContent = '创建成功！请前往“商品列表”添加规格。';
                 formMessage.className = 'mt-3 text-success';
                 formMessage.style.display = 'block';
