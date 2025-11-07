@@ -149,7 +149,27 @@
 	        // 请确保 '/static/tinymce/' 路径正确
 	        base_url: '/static/tinymce',
 	    });
-        // 退出登录逻辑已在 utils.js 中初始化
+		// 加载商品分类
+        async function loadCategories() {
+            try {
+                // 假设分类列表的 API 路径是 /api/admin/categories
+                const categories = await adminFetch('/api/admin/categories');
+                const selectElement = document.getElementById('prod-category');
+                
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    selectElement.appendChild(option);
+                });
+            } catch (error) {
+                console.error("加载分类失败:", error);
+                // 可在此处添加用户友好的错误提示
+            }
+        }
+        
+        // 页面加载完成后调用
+        loadCategories();
 
         const form = document.getElementById('add-product-form');
         const formMessage = document.getElementById('form-message');
