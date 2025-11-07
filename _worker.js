@@ -16,8 +16,8 @@ const mockProducts = [
         base_price: 100.00,
         image_url: 'https://placehold.co/600x400/3b82f6/ffffff?text=Super+OS',
         variants: [
-            { id: 101, name: '1年许可', price_adjustment: 0 },
-            { id: 102, name: '永久许可', price_adjustment: 150.00 },
+            { id: 101, name: '1年许可', price_adjustment: 0, stock_count: 50 }, // 模拟库存
+            { id: 102, name: '永久许可', price_adjustment: 150.00, stock_count: 10 }, // 模拟库存
         ]
     },
     // ... 其他商品 ...
@@ -35,6 +35,27 @@ const mockArticles = [
 ];
 
 const mockOrders = new Map();
+const mockCards = [
+    { id: 1, variant_id: 101, card_key: 'KEY-101-ABCDEF', is_used: 0, created_at: '2025-10-01T00:00:00Z' },
+    { id: 2, variant_id: 101, card_key: 'KEY-101-GHIJKL', is_used: 0, created_at: '2025-10-02T00:00:00Z' },
+    { id: 3, variant_id: 102, card_key: 'KEY-102-MNOPQR', is_used: 0, created_at: '2025-10-03T00:00:00Z' },
+];
+
+const mockAdminOrders = [
+    { order_id: 'MOCK-1700000001', product_name: 'Super OS 专业版 - 1年许可', total_amount: 100.00, status: 'paid', created_at: '2025-10-20T08:00:00Z' },
+    { order_id: 'MOCK-1700000002', product_name: 'Super OS 专业版 - 永久许可', total_amount: 250.00, status: 'pending', created_at: '2025-10-21T12:30:00Z' },
+];
+
+const mockPaymentSettings = {
+    alipay_partner_id: '123456789',
+    wechatpay_mch_id: '987654321',
+    is_enabled: 'true',
+};
+
+const mockConfigurations = {
+    site_title: 'CloudCard',
+    support_email: 'support@cloudcard.com',
+};
 
 // --- 模拟后台设置 (重要！) ---
 // 移除了硬编码的 MOCK_ADMIN_USERNAME, MOCK_ADMIN_PASSWORD, 和 MOCK_ADMIN_TOKEN
@@ -96,10 +117,11 @@ router.get('/api/articles/:slug', ({ params }) => {
 
 // POST /api/orders
 router.post('/api/orders', async (request) => {
-    // ... (此部分与 V1 相同，保持不变) ...
     const { variant_id } = await request.json();
     let foundProduct = null;
     let foundVariant = null;
+
+    // 1. 查找商品规格并检查库存
     for (const p of mockProducts) {
         const v = p.variants.find(v => v.id === variant_id);
         if (v) {
@@ -109,6 +131,16 @@ router.post('/api/orders', async (request) => {
         }
     }
     if (!foundVariant) return error(404, 'Variant not found');
+    
+    // 简化模拟库存检查：查找一个未使用的卡密
+    const availableCardIndex = mockCards.findIndex(c => c.variant_id === variant_id && c.is_used === 0);
+    if (availableCardIndex === -1 || foundVariant.stock_count <= 0) {
+         return error(400, '库存不足');
+    }
+
+    // 2. 扣除库存 (模拟)
+    foundVariant.stock_count -= 1; // 模拟扣除库存
+
     const totalAmount = foundProduct.base_price + foundVariant.price_adjustment;
     const orderId = `MOCK-${Date.now()}`;
     const newOrder = {
@@ -119,10 +151,20 @@ router.post('/api/orders', async (request) => {
         qr_code_url: `https://placehold.co/200x200/ffffff/000000?text=${encodeURIComponent('模拟支付\n￥' + totalAmount.toFixed(2))}`,
     };
     mockOrders.set(orderId, newOrder);
+
+    // 3. 模拟支付成功和卡密派发
     setTimeout(() => {
         const order = mockOrders.get(orderId);
-        if (order) { order.status = 'paid'; order.delivered_card = `MOCK-CARD-KEY-${Date.now()}-12345`; }
+        if (order) { 
+            // 标记卡密为已使用并派发
+            const cardToDeliver = mockCards[availableCardIndex];
+            cardToDeliver.is_used = 1;
+            
+            order.status = 'paid'; 
+            order.delivered_card = cardToDeliver.card_key; 
+        }
     }, 5000);
+
     return json(newOrder);
 });
 
@@ -214,6 +256,87 @@ router.post('/api/admin/categories', withAuth, async (request) => {
     mockCategories.push(newCategory);
     console.log('Added category (mock):', JSON.stringify(newCategory));
     return json(newCategory, { status: 201 });
+});
+// 9. 获取所有订单 (受保护) - 新增
+router.get('/api/admin/orders', withAuth, () => {
+    // 合并 mockAdminOrders 和动态生成的 mockOrders
+    const dynamicOrders = Array.from(mockOrders.values()).map(o => ({
+        order_id: o.order_id,
+        product_name: o.product_name,
+        total_amount: o.total_amount,
+        status: o.status,
+        created_at: new Date().toISOString(), // 模拟创建时间
+    }));
+    // 真实应用中，需要从 DB 倒序取出
+    return json([...mockAdminOrders, ...dynamicOrders].sort((a, b) => b.created_at.localeCompare(a.created_at)));
+});
+
+// 10. 获取卡密列表 (受保护) - 新增
+router.get('/api/admin/cards', withAuth, () => {
+    return json(mockCards);
+});
+
+// 11. 导入新卡密 (受保护) - 新增（简化：直接添加）
+router.post('/api/admin/cards/import', withAuth, async (request) => {
+    const { variant_id: variantId, keys } = await request.json();
+    const variant_id = parseInt(variantId);
+
+    // 查找并增加 ProductVariant 的 stock_count (模拟)
+    let foundVariant = null;
+    for (const p of mockProducts) {
+        const v = p.variants.find(v => v.id === variant_id);
+        if (v) {
+            foundVariant = v;
+            break;
+        }
+    }
+    if (!foundVariant) return error(404, 'Variant not found');
+
+    let addedCount = 0;
+    keys.forEach(key => {
+        const newCard = {
+            id: Math.floor(Math.random() * 1000000) + 1000,
+            variant_id: variant_id,
+            card_key: key,
+            is_used: 0,
+            created_at: new Date().toISOString(),
+        };
+        mockCards.push(newCard);
+        addedCount++;
+    });
+
+    foundVariant.stock_count += addedCount; // 模拟更新库存
+
+    console.log(`Imported ${addedCount} cards for variant ${variant_id} (mock)`);
+    return json({ success: true, added_count: addedCount }, { status: 201 });
+});
+
+// 12. 获取支付设置 (受保护) - 新增
+router.get('/api/admin/settings/payment', withAuth, () => {
+    // 真实应用：从 PaymentSettings DB 表中获取所有 key/value
+    return json(mockPaymentSettings);
+});
+
+// 13. 保存支付设置 (受保护) - 新增
+router.post('/api/admin/settings/payment', withAuth, async (request) => {
+    const updates = await request.json();
+    // 真实应用：更新 PaymentSettings DB 表中的 key/value
+    Object.assign(mockPaymentSettings, updates);
+    return json({ success: true, settings: mockPaymentSettings });
+});
+
+// 14. 获取通用配置 (受保护) - 新增
+router.get('/api/admin/settings/config', withAuth, () => {
+    // 真实应用：从 Configurations DB 表中获取所有 key/value
+    return json(mockConfigurations);
+});
+
+// 15. 保存通用配置 (受保护) - 新增
+router.post('/api/admin/settings/config', withAuth, async (request) => {
+    const updates = await request.json();
+    // 真实应用：更新 Configurations DB 表中的 key/value
+    Object.assign(mockConfigurations, updates);
+    return json({ success: true, configurations: mockConfigurations });
 });
 
 // --- 404 处理 ---
