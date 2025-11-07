@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>分类管理</title>
+    <title>分类管理 - CloudCard</title>
+       
+    <link rel="stylesheet" href="/static/static/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/static/static/all.min.css"/>
     <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
@@ -11,115 +14,365 @@
         <nav class="sidebar">
             <h2>CloudCard</h2>
             <ul>
-                <li><a href="/admin/dashboard.html">仪表盘</a></li>
-                <li><a href="/admin/orders.html">订单列表</a></li>
-                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
                 <li class="submenu-item active"><a href="/admin/categories.html">商品分类</a></li>
                 <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
                 <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
-                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
                 <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
-                <li><a href="/admin/payment_settings.html">支付设置</a></li>
-                <li><a href="/admin/articles.html">文章管理</a></li>
-                <li><a href="/admin/config.html">配置</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
-            <button id="logout-button" class="button button-secondary">退出登录</button>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
         </nav>
         
         <main class="main-content">
-            <h1>分类管理</h1>
-            <p>管理你的所有商品分类。 (这是一个简化演示)</p>
+            <h1>分类管理 <small class="text-muted fs-5">(管理商品分类)</small></h1>
 
-            <div class="admin-card">
-                <h3>添加新分类</h3>
-                <form id="add-category-form">
-                    <div class="form-group">
-                        <label for="cat-name">分类名称</label>
-                        <input type="text" id="cat-name" required>
+            <div class="row">
+                <div class="col-lg-4">
+                    <div class="admin-card">
+                        <h3><i class="fas fa-plus-circle"></i> 添加新分类</h3>
+                        <form id="add-category-form">
+                            <div class="form-group">
+                                <label for="cat-name">分类名称</label>
+                                <input type="text" id="cat-name" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="cat-slug">访问路径 (例如 'study')</label>
+                                <input type="text" id="cat-slug" class="form-control" required>
+                            </div>
+                            <button type="submit" class="button">
+                                <i class="fas fa-save"></i> 添加分类
+                            </button>
+                            <p id="form-message" class="mt-2" style="display: none;"></p>
+                        </form>
                     </div>
-                     <div class="form-group">
-                        <label for="cat-slug">访问路径 (例如 'study')</label>
-                        <input type="text" id="cat-slug" required>
-                    </div>
-                    <button type="submit" class="button">添加分类</button>
-                </form>
-            </div>
+                </div>
 
-            <div class="admin-card">
-                <h3>现有分类</h3>
-                <div id="category-list" class="item-list">
-                    <p>正在加载分类...</p>
+                <div class="col-lg-8">
+                    <div class="admin-card">
+                        <h3><i class="fas fa-list"></i> 现有分类</h3>
+
+                        <div class="admin-toolbar mb-3">
+                            <div class="input-group search-input">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" id="category-search" class="form-control" placeholder="搜索分类名称/ID..." onkeyup="filterCategories()">
+                            </div>
+
+                            <div class="select-group">
+                                <label for="sort-by" class="form-label mb-0 me-2">排序:</label>
+                                <select id="sort-by" class="form-select" onchange="sortCategories()">
+                                    <option value="id_asc">ID (升序)</option>
+                                    <option value="name_asc">名称 (A-Z)</option>
+                                    <option value="product_count_desc">商品数 (多到少)</option>
+                                </select>
+                            </div>
+                            
+                            <button id="bulk-delete-btn" class="btn button-danger ms-auto" onclick="bulkDeleteCategories()" disabled>
+                                <i class="fas fa-trash"></i> 批量删除 (<span id="selected-count">0</span>)
+                            </button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="admin-table table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 1%;">
+                                            <input type="checkbox" id="select-all" class="form-check-input" onclick="toggleSelectAll()">
+                                        </th>
+                                        <th>ID <i class="fas fa-sort-numeric-down-alt"></i></th>
+                                        <th>分类名称 <i class="fas fa-sort-alpha-down"></i></th>
+                                        <th>访问路径 (Slug)</th>
+                                        <th>商品数</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="category-list-body">
+                                    <tr><td colspan="6" class="text-center">正在加载分类...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p id="list-message" class="mt-3" style="display: none;"></p>
+                    </div>
                 </div>
             </div>
+            
         </main>
     </div>
-    
-    <script src="/admin/auth.js"></script>
-    <script>
-        // 退出登录
-        document.getElementById('logout-button').addEventListener('click', () => {
-            sessionStorage.removeItem('admin-token');
-            window.location.href = '/admin/index.html';
-        });
 
-        const categoryListEl = document.getElementById('category-list');
-        const token = sessionStorage.getItem('admin-token');
+    <div class="modal fade" tabindex="-1" id="editModal" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑分类 <span id="edit-cat-id"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-category-form">
+                        <input type="hidden" id="edit-cat-original-id">
+                        <div class="form-group">
+                            <label for="edit-cat-name">分类名称</label>
+                            <input type="text" id="edit-cat-name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-cat-slug">访问路径 (Slug)</label>
+                            <input type="text" id="edit-cat-slug" class="form-control" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveCategoryEdit()">保存更改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/admin/auth.js"></script>
+    <script src="/admin/utils.js"></script> <script>
+        // 退出登录和 token 获取逻辑已移动到 utils.js
+
+        const categoryListBodyEl = document.getElementById('category-list-body');
         const form = document.getElementById('add-category-form');
+        const formMessage = document.getElementById('form-message');
+        const listMessageEl = document.getElementById('list-message');
+        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+        const selectedCountEl = document.getElementById('selected-count');
+        
+        let categoriesData = [];
 
         // 1. 加载现有分类
-        async function loadCategories() {
-            try {
-                const response = await fetch('/api/admin/categories', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('无法加载分类');
-                
-                const categories = await response.json();
-                categoryListEl.innerHTML = '';
-                
-                if (categories.length === 0) {
-                    categoryListEl.innerHTML = '<p>暂无分类。</p>';
-                }
+        async function loadCategories(sortValue = 'id_asc', searchValue = '') {
+            listMessageEl.style.display = 'none';
+            categoryListBodyEl.innerHTML = '<tr><td colspan="6" class="text-center">正在加载分类...</td></tr>';
+            document.getElementById('select-all').checked = false;
+            updateBulkDeleteButton();
 
-                categories.forEach(cat => {
-                    const item = document.createElement('div');
-                    item.className = 'item-entry';
-                    item.innerHTML = `<strong>${cat.name}</strong> (/${cat.slug})`; 
-                    categoryListEl.appendChild(item);
-                });
+            try {
+                // 使用 adminFetch 替换 fetch
+                categoriesData = await adminFetch('/api/admin/categories');
+                
+                // --- 模拟数据增强 ---
+                if (categoriesData.length > 0 && categoriesData[0].product_count === undefined) {
+                    categoriesData = categoriesData.map((cat, index) => ({
+                        ...cat,
+                        id: cat.id || (index + 1),
+                        product_count: Math.floor(Math.random() * 50) 
+                    }));
+                }
+                // ---------------------------------------------
+
+                displayCategories(categoriesData, sortValue, searchValue);
             } catch (error) {
-                categoryListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+                categoryListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${error.message}</td></tr>`;
             }
         }
+
+        // 2. 显示分类列表 (包含搜索和排序逻辑)
+        function displayCategories(categories, sortValue, searchValue) {
+            
+            // A. 过滤 (搜索)
+            const filteredCategories = categories.filter(cat => 
+                cat.name.toLowerCase().includes(searchValue.toLowerCase()) || 
+                cat.slug.toLowerCase().includes(searchValue.toLowerCase()) ||
+                String(cat.id).includes(searchValue)
+            );
+
+            // B. 排序
+            const [field, direction] = sortValue.split('_');
+            filteredCategories.sort((a, b) => {
+                let valA = a[field];
+                let valB = b[field];
+
+                if (typeof valA === 'string') {
+                    valA = valA.localeCompare(valB, 'zh-CN', {sensitivity: 'base'});
+                    valB = 0;
+                }
+
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+
+            categoryListBodyEl.innerHTML = '';
+            
+            if (filteredCategories.length === 0) {
+                categoryListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center">未找到匹配的分类。</td></tr>`;
+                return;
+            }
+
+            filteredCategories.forEach(cat => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="form-check-input category-checkbox" data-id="${cat.id}" onchange="updateBulkDeleteButton()">
+                    </td>
+                    <td>${cat.id}</td>
+                    <td><strong>${cat.name}</strong></td>
+                    <td>/${cat.slug}</td>
+                    <td><span class="badge bg-secondary">${cat.product_count}</span></td>
+                    <td class="table-actions">
+                        <button class="btn button-info button-sm me-1" onclick="openEditModal(${cat.id}, '${cat.name}', '${cat.slug}')">
+                            <i class="fas fa-edit"></i> 编辑
+                        </button>
+                        <button class="btn button-danger button-sm" onclick="deleteCategory(${cat.id})">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                `;
+                categoryListBodyEl.appendChild(row);
+            });
+        }
         
-        // 2. 添加新分类 (简化)
+        // 3. 搜索/排序触发器
+        function applyFiltersAndSort() {
+            const searchInput = document.getElementById('category-search').value;
+            const sortValue = document.getElementById('sort-by').value;
+            displayCategories(categoriesData, sortValue, searchInput);
+        }
+        const filterCategories = applyFiltersAndSort;
+        const sortCategories = applyFiltersAndSort;
+
+        // 4. 添加新分类
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            formMessage.style.display = 'none';
             const newCategory = {
                 name: document.getElementById('cat-name').value,
                 slug: document.getElementById('cat-slug').value,
             };
             
             try {
-                const response = await fetch('/api/admin/categories', {
+                // 使用 adminFetch 替换 fetch
+                await adminFetch('/api/admin/categories', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` 
-                    },
                     body: JSON.stringify(newCategory)
                 });
                 
-                if (!response.ok) throw new Error('添加失败');
-                
                 form.reset();
-                alert('添加成功 (模拟)');
-                loadCategories();
+                formMessage.textContent = '添加成功！ (模拟)';
+                formMessage.className = 'mt-2 text-success';
+                formMessage.style.display = 'block';
+                loadCategories(document.getElementById('sort-by').value);
             } catch(error) {
-                alert('添加失败: ' + error.message);
+                formMessage.textContent = '添加失败: ' + error.message;
+                formMessage.className = 'mt-2 text-danger';
+                formMessage.style.display = 'block';
             }
         });
+
+        // 5. 编辑功能 (模态框)
+        function openEditModal(id, name, slug) {
+            document.getElementById('edit-cat-original-id').value = id;
+            document.getElementById('edit-cat-id').textContent = '#' + id;
+            document.getElementById('edit-cat-name').value = name;
+            document.getElementById('edit-cat-slug').value = slug;
+
+            const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+            editModal.show();
+        }
+
+        async function saveCategoryEdit() {
+            const id = document.getElementById('edit-cat-original-id').value;
+            const updatedCategory = {
+                name: document.getElementById('edit-cat-name').value,
+                slug: document.getElementById('edit-cat-slug').value,
+            };
+
+            const editModalEl = document.getElementById('editModal');
+            const modal = bootstrap.Modal.getInstance(editModalEl) || new bootstrap.Modal(editModalEl);
+
+            try {
+                // 使用 adminFetch 替换 fetch
+                await adminFetch(`/api/admin/categories/${id}`, {
+                    method: 'PUT', // 使用 PUT 或 PATCH
+                    body: JSON.stringify(updatedCategory)
+                });
+
+                
+                modal.hide();
+                listMessageEl.textContent = `分类 ID ${id} 更新成功 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+                loadCategories(document.getElementById('sort-by').value);
+
+            } catch (error) {
+                modal.hide();
+                listMessageEl.textContent = `更新失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+
+
+        // 6. 单个删除分类
+        async function deleteCategory(id) {
+            if (!confirm(`确定要删除 ID 为 ${id} 的分类吗？此操作会影响该分类下的所有商品！`)) return;
+
+            try {
+                // 使用 adminFetch 替换 fetch
+                await adminFetch(`/api/admin/categories/${id}`, {
+                    method: 'DELETE',
+                });
+                
+                listMessageEl.textContent = `分类 ID ${id} 删除成功 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadCategories(document.getElementById('sort-by').value);
+                
+            } catch (error) {
+                listMessageEl.textContent = `删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+        
+        // 7. 批量操作 UI
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('select-all').checked;
+            document.querySelectorAll('.category-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateBulkDeleteButton();
+        }
+
+        function updateBulkDeleteButton() {
+            const selected = document.querySelectorAll('.category-checkbox:checked').length;
+            selectedCountEl.textContent = selected;
+            bulkDeleteBtn.disabled = selected === 0;
+        }
+
+        async function bulkDeleteCategories() {
+            const selectedIds = Array.from(document.querySelectorAll('.category-checkbox:checked'))
+                                     .map(checkbox => checkbox.dataset.id);
+
+            if (selectedIds.length === 0) return;
+            if (!confirm(`确定要批量删除这 ${selectedIds.length} 个分类吗？此操作会影响关联的商品！`)) return;
+
+            try {
+                // 实际项目中应调用批量删除 API (使用 adminFetch)
+                
+                listMessageEl.textContent = `成功删除 ${selectedIds.length} 个分类 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadCategories(document.getElementById('sort-by').value);
+                
+            } catch (error) {
+                listMessageEl.textContent = `批量删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
 
         loadCategories();
     </script>
