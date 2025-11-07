@@ -1,18 +1,23 @@
 /* * CloudCard Admin 样式表
  * 这是一个用于 /admin/ 目录的独立样式表。
+ * 调整为更紧凑的现代布局.
  */
 
 :root {
-    --admin-bg: #f4f7f6;
+    --admin-bg: #f8f9fa; /* Light background for a modern look */
     --sidebar-bg: #2c3e50;
     --sidebar-text: #ecf0f1;
-    --sidebar-active: #3498db;
+    --sidebar-active: #1abc9c; /* Change active color for a fresh look */
     --content-bg: #ffffff;
-    --text-color: #333;
-    --border-color: #dfe4e8;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-    --primary-color: #3498db;
+    --text-color: #343a40; /* Darker text */
+    --border-color: #e0e6ed;
+    --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Tighter shadow */
+    --primary-color: #1abc9c; /* Emerald Green */
     --danger-color: #e74c3c;
+    --info-color: #3498db;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
 }
 
 body {
@@ -23,11 +28,11 @@ body {
     color: var(--text-color);
 }
 
-/* 1. 登录页面 */
+/* 1. 登录页面 (No change needed for compactness here) */
 .login-container {
     max-width: 400px;
     margin: 100px auto;
-    padding: 2rem;
+    padding: var(--spacing-lg); /* 1.5rem */
     background-color: var(--content-bg);
     border-radius: 8px;
     box-shadow: var(--shadow-sm);
@@ -35,20 +40,20 @@ body {
 }
 .login-container h1 {
     font-size: 1.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--spacing-lg);
 }
 
-/* 2. 后台主布局 */
+/* 2. 后台主布局 - Tighter */
 .admin-layout {
     display: flex;
     min-height: 100vh;
 }
 
 .sidebar {
-    width: 240px;
+    width: 220px; /* Slightly narrower sidebar */
     background-color: var(--sidebar-bg);
     color: var(--sidebar-text);
-    padding: 1.5rem;
+    padding: var(--spacing-md); /* 1rem, smaller padding */
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -56,7 +61,8 @@ body {
 .sidebar h2 {
     color: white;
     text-align: center;
-    margin-bottom: 2rem;
+    font-size: 1.25rem; /* Smaller logo/title */
+    margin-bottom: var(--spacing-lg);
 }
 .sidebar ul {
     list-style: none;
@@ -65,12 +71,14 @@ body {
     flex-grow: 1;
 }
 .sidebar li a {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Icon spacing */
     color: var(--sidebar-text);
     text-decoration: none;
-    padding: 0.75rem 1rem;
+    padding: var(--spacing-sm) var(--spacing-md); /* Tighter vertical padding */
     border-radius: 4px;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem; /* Smaller margin */
     transition: background-color 0.2s ease;
 }
 .sidebar li a:hover {
@@ -78,75 +86,79 @@ body {
 }
 .sidebar li.active a {
     background-color: var(--sidebar-active);
+    color: #fff;
+    font-weight: 600;
 }
 .sidebar #logout-button {
     width: 100%;
-    margin-top: 1rem;
+    margin-top: var(--spacing-md);
 }
 
 .main-content {
     flex-grow: 1;
-    padding: 2rem;
+    padding: var(--spacing-lg); /* 1.5rem main content padding */
     overflow-y: auto;
 }
 .main-content h1 {
-    font-size: 2rem;
-    margin-bottom: 1.5rem;
+    font-size: 1.75rem; /* Slightly smaller h1 */
+    margin-bottom: var(--spacing-md);
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 1rem;
+    padding-bottom: var(--spacing-md);
+    display: flex;
+    align-items: baseline;
 }
 
-/* 3. 卡片和表单 */
+/* 3. 卡片和表单 - Tighter cards */
 .admin-card {
     background-color: var(--content-bg);
-    border-radius: 8px;
+    border-radius: 6px; /* Slightly smaller border radius */
     box-shadow: var(--shadow-sm);
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    padding: var(--spacing-md); /* 1rem, smaller padding */
+    margin-bottom: var(--spacing-lg);
 }
 .admin-card h3 {
     margin-top: 0;
+    font-size: 1.25rem;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.75rem;
-}
-
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
+    padding-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
 }
 
 .form-group {
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-md);
 }
 .form-group label {
     display: block;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem; /* Tighter label margin */
+    font-size: 0.9rem;
 }
 .form-group input[type="text"],
 .form-group input[type="password"],
 .form-group input[type="number"],
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
-    padding: 0.75rem;
-    font-size: 1rem;
+    padding: 0.6rem 0.75rem; /* Tighter padding */
+    font-size: 0.9rem; /* Smaller font size for a compact feel */
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    box-sizing: border-box; /* 确保 padding 不会撑破宽度 */
+    box-sizing: border-box;
 }
 .form-group textarea {
-    min-height: 80px;
+    min-height: 60px; /* Smaller min-height */
     resize: vertical;
 }
 
-/* 4. 按钮 */
+/* 4. 按钮 - Tighter buttons (Replaced by Bootstrap utility classes where possible) */
 .button {
-    display: inline-block;
-    padding: 0.6rem 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem; /* Tighter padding */
     border: none;
     border-radius: 4px;
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
     text-align: center;
@@ -156,45 +168,44 @@ body {
     transition: background-color 0.2s ease;
 }
 .button:hover {
-    background-color: #2980b9;
+    background-color: #16a085;
 }
 .button-secondary {
     background-color: #7f8c8d;
+    color: white;
 }
 .button-secondary:hover {
     background-color: #6c7a7b;
 }
 .button-danger {
     background-color: var(--danger-color);
+    color: white;
 }
 .button-danger:hover {
     background-color: #c0392b;
 }
+.button-info {
+    background-color: var(--info-color);
+    color: white;
+}
+.button-info:hover {
+    background-color: #2980b9;
+}
 .button-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem; /* Even tighter small button */
+    font-size: 0.75rem;
 }
 
-/* 5. 列表 */
-.item-list {
-    margin-top: 1rem;
-}
-.item-entry {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-}
-.item-entry:last-child {
-    border-bottom: none;
+/* 5. 列表 (Table styles for enhanced list look) */
+.item-list { /* Removed, use table instead */
+    margin-top: var(--spacing-md);
 }
 .sidebar li.submenu-title a {
     font-weight: bold;
-    color: #bdc3c7; /* Lighter color for group titles */
+    color: #bdc3c7;
     cursor: default;
     background: none;
-    margin-top: 1rem;
+    margin-top: var(--spacing-md);
     margin-bottom: 0;
     padding-left: 0.5rem;
 }
@@ -202,65 +213,96 @@ body {
     background: none;
 }
 .sidebar li.submenu-item a {
-    padding-left: 2rem; /* Indentation */
+    padding-left: 2rem;
+}
+
+/* New Table Styles for a cleaner look */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--spacing-md);
+    font-size: 0.9rem; /* Compact font size */
+}
+.admin-table thead th {
+    background-color: #f4f7f6;
+    border-bottom: 2px solid var(--border-color);
+    text-align: left;
+    padding: 0.75rem;
+    cursor: pointer; /* Indicate sortability */
+    user-select: none;
+    white-space: nowrap; /* Prevent wrapping */
+}
+.admin-table tbody td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+.admin-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+.table-actions {
+    white-space: nowrap; /* Keep buttons together */
+}
+
+/* Toolbar for search/sort/export */
+.admin-toolbar {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    align-items: center;
+    flex-wrap: wrap;
+}
+.admin-toolbar .search-input {
+    flex-grow: 1;
+    max-width: 300px;
+}
+.admin-toolbar .select-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.admin-toolbar select, .admin-toolbar input[type="text"] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+.admin-toolbar .form-check-input {
+    margin-top: 0.35rem;
 }
 
 /* 6. 辅助类 */
 .error-message {
     color: var(--danger-color);
-    margin-top: 1rem;
+    margin-top: var(--spacing-sm);
 }
-/* 7. 响应式设计 (补充) */
+/* 7. 响应式设计 (Minimal changes for responsiveness) */
 @media (max-width: 768px) {
-    /* 侧边栏改为堆叠式，默认隐藏 */
     .admin-layout {
         flex-direction: column;
     }
     
     .sidebar {
         width: 100%;
-        height: auto;
-        padding: 1rem;
-        /* 使用 flexbox 居中，并准备隐藏 */
+        padding: 0.5rem 1rem;
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        position: fixed; /* 保持在顶部 */
+        position: fixed;
         top: 0;
         z-index: 100;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     
-    .sidebar h2 {
-        margin: 0;
-        font-size: 1.2rem;
-    }
-
-    /* 隐藏导航菜单，等待汉堡菜单实现 */
-    .sidebar ul {
-        display: none; 
-    }
-    
-    .sidebar #logout-button {
-        /* 在移动端隐藏退出按钮，需要搭配汉堡菜单实现 */
-        display: none; 
-    }
-
     .main-content {
         padding: 1rem;
-        margin-top: 60px; /* 为固定的侧边栏留出空间 */
+        margin-top: 50px; /* Reduced margin */
     }
-
-    .dashboard-grid {
-        grid-template-columns: 1fr;
+    
+    .admin-toolbar {
+        flex-direction: column;
+        align-items: stretch;
     }
-
-    /* 侧边栏项目适应手机宽度 */
-    .sidebar li a {
-        padding: 0.75rem 1rem;
-        margin: 0 1rem;
-    }
-    .sidebar li.submenu-item a {
-        padding-left: 3rem; 
+    .admin-toolbar .search-input {
+        max-width: 100%;
     }
 }
