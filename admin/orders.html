@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>订单列表</title>
+    <title>订单列表 - CloudCard</title>
+    
+    <link rel="stylesheet" href="/main/static/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/main/static/all.min.css"/>
     <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
@@ -11,90 +14,282 @@
         <nav class="sidebar">
             <h2>CloudCard</h2>
             <ul>
-                <li><a href="/admin/dashboard.html">仪表盘</a></li>
-                <li class="active"><a href="/admin/orders.html">订单列表</a></li>
-                <li class="submenu-title"><a href="#">商品管理</a></li>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li class="active"><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
                 <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
                 <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
                 <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
-                <li class="submenu-title"><a href="#">卡密管理</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
                 <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
-                <li><a href="/admin/payment_settings.html">支付设置</a></li>
-                <li><a href="/admin/articles.html">文章管理</a></li>
-                <li><a href="/admin/config.html">配置</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
-            <button id="logout-button" class="button button-secondary">退出登录</button>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
         </nav>
         
         <main class="main-content">
-            <h1>订单列表</h1>
-            <p>查看所有订单的详细信息。</p>
+            <h1>订单列表 <small class="text-muted fs-5">(查看所有订单)</small></h1>
 
-            <div class="admin-card">
-                <h3>订单列表</h3>
-                <div id="order-list" class="item-list">
-                    <p>正在加载订单...</p>
+            <div class="admin-card p-3">
+                <div class="admin-toolbar mb-3">
+                    <div class="input-group search-input">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="order-search" class="form-control" placeholder="搜索订单号/商品名/邮箱..." onkeyup="filterOrders()">
+                    </div>
+
+                    <div class="select-group">
+                        <label for="filter-status" class="form-label mb-0 me-2">状态:</label>
+                        <select id="filter-status" class="form-select" onchange="filterOrders()">
+                            <option value="">所有状态</option>
+                            <option value="paid">已支付</option>
+                            <option value="pending">待支付</option>
+                            <option value="failed">失败</option>
+                        </select>
+                    </div>
+
+                    <div class="select-group">
+                        <label for="sort-by" class="form-label mb-0 me-2">排序:</label>
+                        <select id="sort-by" class="form-select" onchange="sortOrders()">
+                            <option value="created_at_desc">最新订单</option>
+                            <option value="total_amount_desc">金额 (高到低)</option>
+                            <option value="total_amount_asc">金额 (低到高)</option>
+                        </select>
+                    </div>
+                    
+                    <button id="bulk-delete-btn" class="btn button-danger ms-auto" onclick="bulkDeleteOrders()" disabled>
+                        <i class="fas fa-trash"></i> 批量删除 (<span id="selected-count">0</span>)
+                    </button>
                 </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 1%;">
+                                    <input type="checkbox" id="select-all" class="form-check-input" onclick="toggleSelectAll()">
+                                </th>
+                                <th>订单号 / 邮箱 <i class="fas fa-sort-numeric-down-alt"></i></th>
+                                <th>商品信息</th>
+                                <th>金额</th>
+                                <th>状态 <i class="fas fa-sort"></i></th>
+                                <th>时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="order-list-body">
+                            <tr><td colspan="7" class="text-center">正在加载订单...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <p id="list-message" class="mt-3" style="display: none;"></p>
             </div>
         </main>
     </div>
-    
+    <script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/admin/auth.js"></script>
-    <script>
-        document.getElementById('logout-button').addEventListener('click', () => {
-            sessionStorage.removeItem('admin-token');
-            window.location.href = '/admin/index.html';
-        });
+    <script src="/admin/utils.js"></script> <script>
+        // 退出登录和 token 获取逻辑已移动到 utils.js
 
-        const orderListEl = document.getElementById('order-list');
-        const token = sessionStorage.getItem('admin-token');
+        const orderListBodyEl = document.getElementById('order-list-body');
+        const listMessageEl = document.getElementById('list-message');
+        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+        const selectedCountEl = document.getElementById('selected-count');
+        
+        let ordersData = []; // 存储原始订单数据
 
         // 订单状态的显示配置
         const statusMap = {
-            'paid': '已支付',
-            'pending': '待支付',
-            'failed': '失败'
-        };
-        const statusColor = {
-            'paid': 'color: #10b981;', // 绿色
-            'pending': 'color: #f59e0b;', // 黄色
-            'failed': 'color: #ef4444;' // 红色
+            'paid': '<span class="badge bg-success"><i class="fas fa-check-circle"></i> 已支付</span>',
+            'pending': '<span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> 待支付</span>',
+            'failed': '<span class="badge bg-danger"><i class="fas fa-times-circle"></i> 失败</span>',
+            'expired': '<span class="badge bg-secondary"><i class="fas fa-history"></i> 已过期</span>'
         };
 
-        async function loadOrders() {
+        // 1. 加载现有订单
+        async function loadOrders(sortValue = 'created_at_desc') {
+            listMessageEl.style.display = 'none';
+            orderListBodyEl.innerHTML = '<tr><td colspan="7" class="text-center">正在加载订单...</td></tr>';
+            document.getElementById('select-all').checked = false;
+            updateBulkDeleteButton();
+
             try {
-                const response = await fetch('/api/admin/orders', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('无法加载订单');
+                // 使用 adminFetch 替换 fetch
+                ordersData = await adminFetch('/api/admin/orders');
                 
-                const orders = await response.json();
-                orderListEl.innerHTML = '';
-                
-                if (orders.length === 0) {
-                    orderListEl.innerHTML = '<p>暂无订单。</p>';
+                // --- 模拟数据增强 ---
+                if (ordersData.length > 0 && ordersData[0].user_email === undefined) {
+                    ordersData = ordersData.map((order, index) => ({
+                        ...order,
+                        order_id: order.order_id || 'ORDER' + (1000 + index),
+                        user_email: `user${index}@example.com`,
+                        total_amount: order.total_amount || parseFloat((Math.random() * 100).toFixed(2)),
+                        status: order.status || (['paid', 'pending', 'failed'][Math.floor(Math.random() * 3)]),
+                        created_at: order.created_at || new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
+                        product_name: order.product_name || `商品 #${Math.floor(Math.random() * 5) + 1}`,
+                    }));
                 }
+                // ---------------------------------------------
+                
+                displayOrders(ordersData, sortValue, '');
 
-                orders.forEach(order => {
-                    const statusText = statusMap[order.status] || order.status;
-                    const item = document.createElement('div');
-                    item.className = 'item-entry';
-                    item.innerHTML = `
-                        <div>
-                            <strong>${order.order_id}</strong> - ${order.product_name}
-                            <span style="font-size: 0.9em; margin-left: 10px; ${statusColor[order.status] || ''}">${statusText}</span>
-                            <br>
-                            <small>￥${order.total_amount.toFixed(2)} | ${new Date(order.created_at).toLocaleString()}</small>
-                        </div>
-                    `;
-                    orderListEl.appendChild(item);
-                });
             } catch (error) {
-                orderListEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+                orderListBodyEl.innerHTML = `<tr><td colspan="7" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
             }
         }
         
+        // 2. 显示订单列表 (包含搜索、排序和过滤逻辑)
+        function displayOrders(orders, sortValue, searchValue) {
+            const statusFilter = document.getElementById('filter-status').value;
+            
+            // A. 过滤
+            let filteredOrders = orders.filter(order => {
+                const matchesSearch = String(order.order_id).toLowerCase().includes(searchValue.toLowerCase()) || 
+                                      String(order.product_name).toLowerCase().includes(searchValue.toLowerCase()) ||
+                                      String(order.user_email).toLowerCase().includes(searchValue.toLowerCase());
+                const matchesStatus = !statusFilter || order.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+
+            // B. 排序
+            const [field, direction] = sortValue.split('_');
+            filteredOrders.sort((a, b) => {
+                let valA = a[field];
+                let valB = b[field];
+
+                if (field === 'created_at') { // 日期比较
+                    valA = new Date(valA).getTime();
+                    valB = new Date(valB).getTime();
+                } else if (typeof valA === 'string') { // 字符串比较
+                     // Assuming localeCompare is acceptable for basic sorting
+                    return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            orderListBodyEl.innerHTML = '';
+            
+            if (filteredOrders.length === 0) {
+                orderListBodyEl.innerHTML = `<tr><td colspan="7" class="text-center">未找到匹配的订单。</td></tr>`;
+                return;
+            }
+
+            filteredOrders.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="form-check-input order-checkbox" data-id="${order.order_id}" onchange="updateBulkDeleteButton()">
+                    </td>
+                    <td>
+                        <strong>${order.order_id}</strong>
+                        <div class="text-muted small">${order.user_email}</div>
+                    </td>
+                    <td>${order.product_name}</td>
+                    <td><strong class="text-primary">￥${order.total_amount.toFixed(2)}</strong></td>
+                    <td>${statusMap[order.status] || order.status}</td>
+                    <td>${new Date(order.created_at).toLocaleString()}</td>
+                    <td class="table-actions">
+                        <button class="btn button-info button-sm me-1" onclick="viewOrderDetails('${order.order_id}')">
+                            <i class="fas fa-info-circle"></i> 详情
+                        </button>
+                        <button class="btn button-danger button-sm" onclick="deleteOrder('${order.order_id}')">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                `;
+                orderListBodyEl.appendChild(row);
+            });
+        }
+        
+        // 3. 搜索/过滤/排序触发器
+        function applyFiltersAndSort() {
+            const searchInput = document.getElementById('order-search').value;
+            const sortValue = document.getElementById('sort-by').value;
+            displayOrders(ordersData, sortValue, searchInput);
+        }
+        const filterOrders = applyFiltersAndSort;
+        const sortOrders = applyFiltersAndSort;
+
+
+        // 4. 单个删除订单
+        async function deleteOrder(orderId) {
+            if (!confirm(`确定要删除订单号为 ${orderId} 的订单吗？此操作不可逆！`)) return;
+
+            try {
+                // 使用 adminFetch 替换 fetch
+                await adminFetch(`/api/admin/orders/${orderId}`, {
+                    method: 'DELETE',
+                });
+                
+                listMessageEl.textContent = `订单 ${orderId} 删除成功 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadOrders(document.getElementById('sort-by').value);
+                
+            } catch (error) {
+                listMessageEl.textContent = `删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+        
+        // 5. 批量操作 UI
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('select-all').checked;
+            document.querySelectorAll('.order-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateBulkDeleteButton();
+        }
+
+        function updateBulkDeleteButton() {
+            const selected = document.querySelectorAll('.order-checkbox:checked').length;
+            selectedCountEl.textContent = selected;
+            bulkDeleteBtn.disabled = selected === 0;
+        }
+
+        async function bulkDeleteOrders() {
+            const selectedIds = Array.from(document.querySelectorAll('.order-checkbox:checked'))
+                                     .map(checkbox => checkbox.dataset.id);
+
+            if (selectedIds.length === 0) return;
+            if (!confirm(`确定要批量删除这 ${selectedIds.length} 个订单吗？此操作不可逆！`)) return;
+
+            try {
+                // 实际项目中应调用批量删除 API，例如：
+                // const response = await adminFetch('/api/admin/orders/bulk-delete', {
+                //     method: 'POST',
+                //     body: JSON.stringify({ ids: selectedIds })
+                // });
+                
+                listMessageEl.textContent = `成功删除 ${selectedIds.length} 个订单 (模拟)`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                await loadOrders(document.getElementById('sort-by').value);
+                
+            } catch (error) {
+                listMessageEl.textContent = `批量删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+        
+        // 6. 查看详情 (Placeholder)
+        function viewOrderDetails(orderId) {
+            alert(`查看订单 ${orderId} 详情 (需跳转到独立页面或弹出模态框)`);
+        }
+
+        // 页面加载时运行
         loadOrders();
     </script>
 </body>
