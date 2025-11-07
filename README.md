@@ -53,3 +53,12 @@ CREATE TABLE Orders (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 </code></pre>
+
+<h3>变量和机密</h3>		
+类型	名称	值
+纯文本	ADMIN_PASS	123456
+纯文本	ADMIN_TOKEN	super-secret-admin-token-xyz
+纯文本	ADMIN_USER	admin
+<img width="217" height="81" alt="image" src="https://github.com/user-attachments/assets/5bb6b038-a8fe-4a88-9794-20c20f9fea8e" />
+
+
