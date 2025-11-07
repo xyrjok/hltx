@@ -37,36 +37,118 @@
             <p>创建一个新的商品，完成后请前往“商品列表”管理规格、价格和库存。</p>
 
             <div class="admin-card p-4">
-                <form id="add-product-form">
-                    <div class="form-group">
-                        <label for="prod-name">商品名称</label>
-                        <input type="text" id="prod-name" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="prod-desc">商品描述 (在前端显示)</label>
-                        <textarea id="prod-desc" rows="3" class="form-control"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="prod-price">基础价格 (元)</label>
-                        <input type="number" id="prod-price" step="0.01" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="prod-image">图片 URL (可选)</label>
-                        <input type="text" id="prod-image" class="form-control">
-                    </div>
-                    <button type="submit" class="button mt-3">
-                        <i class="fas fa-plus-circle"></i> 创建商品
-                    </button>
-                    <p id="form-message" class="mt-3" style="display: none;"></p>
-                </form>
+			<form id="add-product-form">
+			    <div class="form-group">
+			        <label for="prod-name">1. 商品名称</label>
+			        <input type="text" id="prod-name" class="form-control" required>
+			    </div>
+			
+			    <div class="form-group">
+			        <label for="prod-short-desc">2. 商品简介/描述 (在前端列表显示)</label>
+			        <textarea id="prod-short-desc" rows="3" class="form-control"></textarea>
+			    </div>
+			
+			    <div class="form-group">
+			        <label for="prod-keywords">3. 商品关键字 (多个用逗号分隔)</label>
+			        <input type="text" id="prod-keywords" class="form-control">
+			    </div>
+			
+			    <div class="form-group">
+			        <label for="prod-category">4. 所属分类</label>
+			        <select id="prod-category" class="form-control" required>
+			            <option value="">请选择分类</option>
+			            </select>
+			    </div>
+			
+			    <div class="form-group">
+			        <label for="prod-image">5. 商品图片 URL (可选)</label>
+			        <input type="text" id="prod-image" class="form-control">
+			    </div>
+			
+			    <hr class="my-4">
+			    <h4>6. 商品规格/库存配置 (默认规格)</h4>
+			
+			    <div class="row">
+			        <div class="col-md-4">
+			            <div class="form-group">
+			                <label for="prod-base-price">基础售价 (元)</label>
+			                <input type="number" id="prod-base-price" step="0.01" class="form-control" required>
+			            </div>
+			        </div>
+			        <div class="col-md-4">
+			            <div class="form-group">
+			                <label for="prod-stock">库存 (数量)</label>
+			                <input type="number" id="prod-stock" class="form-control" placeholder="自动发货商品无需填写" value="0">
+			                <small class="form-text text-muted">自动发货商品库存会自动计算。</small>
+			            </div>
+			        </div>
+			        <div class="col-md-4">
+			            <div class="form-group">
+			                <label for="prod-addon-price">自选加价 (元)</label>
+			                <input type="number" id="prod-addon-price" step="0.01" class="form-control" placeholder="仅对自动发货商品生效" value="0.00">
+			                <small class="form-text text-muted">开启卡密自选功能所需额外费用。</small>
+			            </div>
+			        </div>
+			    </div>
+			
+			    <div class="form-group">
+			        <label for="prod-wholesale">批发价配置 (一行一个，格式: 数量=价格)</label>
+			        <textarea id="prod-wholesale" rows="3" class="form-control" placeholder="例: 5=3&#10;10=2.5"></textarea>
+			        <small class="form-text text-muted">客户购买指定数量或以上时，每件价格为设定价格。批发价将覆盖多规格商品价格。</small>
+			    </div>
+			
+			    <hr class="my-4">
+			
+			    <div class="form-group">
+			        <label for="prod-desc">7. 商品详细描述 (TinyMCE 编辑器)</label>
+			        <textarea id="prod-desc" class="form-control"></textarea>
+			    </div>
+			
+			    <div class="row">
+			        <div class="col-md-6">
+			            <div class="form-group">
+			                <label for="prod-sort-weight">9. 排序权重</label>
+			                <input type="number" id="prod-sort-weight" class="form-control" value="0">
+			                <small class="form-text text-muted">数值越大，排名越靠前。</small>
+			            </div>
+			        </div>
+			        <div class="col-md-6">
+			            <div class="form-group mt-4">
+			                <div class="form-check">
+			                    <input class="form-check-input" type="checkbox" id="prod-is-active" checked>
+			                    <label class="form-check-label" for="prod-is-active">
+			                        10. 是否上架
+			                    </label>
+			                </div>
+			            </div>
+			        </div>
+			    </div>
+			    
+			    <button type="submit" class="button mt-3">
+			        <i class="fas fa-plus-circle"></i> 创建商品
+			    </button>
+			    <p id="form-message" class="mt-3" style="display: none;"></p>
+			</form>
             </div>
         </main>
     </div>
     
 	<script src="/static/bootstrap.bundle.min.js"></script>
-    <script src="/admin/auth.js"></script>
-    <script src="/admin/admin.js"></script>
-    <script>
+	<script src="/static/tinymce/tinymce.min.js"></script>
+	<script src="/admin/auth.js"></script>
+	<script src="/admin/admin.js"></script>
+	<script>
+	    // TinyMCE 初始化
+	    tinymce.init({
+	        selector: '#prod-desc', // 绑定到商品详细描述的 textarea
+	        language: 'zh_CN',
+	        height: 400,
+	        // 根据仓库中的插件列表，添加常用的富文本插件
+	        plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table paste code help wordcount',
+	        toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image media link | code | fullscreen | help',
+	        // 请确保 '/static/tinymce/' 路径正确
+	        base_url: '/static/tinymce',
+	    });
         // 退出登录逻辑已在 utils.js 中初始化
 
         const form = document.getElementById('add-product-form');
@@ -76,20 +158,46 @@
             e.preventDefault();
             formMessage.style.display = 'none';
 
-            const newProduct = {
-                name: document.getElementById('prod-name').value,
-                description: document.getElementById('prod-desc').value,
-                base_price: parseFloat(document.getElementById('prod-price').value),
-                image_url: document.getElementById('prod-image').value,
-                variants: [] // 默认无规格
-            };
+            // 7. 从 TinyMCE 获取内容
+            const detailedDescription = tinymce.get('prod-desc').getContent();
             
-            if (isNaN(newProduct.base_price) || newProduct.base_price <= 0) {
-                 formMessage.textContent = '价格必须是有效数字且大于 0';
+            const basePriceInput = document.getElementById('prod-base-price').value;
+            const basePrice = parseFloat(basePriceInput);
+
+            if (isNaN(basePrice) || basePrice <= 0) {
+                 formMessage.textContent = '基础售价必须是有效数字且大于 0';
                  formMessage.className = 'mt-3 text-danger';
                  formMessage.style.display = 'block';
                  return;
             }
+
+            const newProduct = {
+                // 1. 商品名称
+                name: document.getElementById('prod-name').value,
+                // 2. 商品简介/描述
+                short_description: document.getElementById('prod-short-desc').value,
+                // 3. 商品关键字
+                keywords: document.getElementById('prod-keywords').value,
+                // 4. 所属分类 (假设发送 category_id)
+                category_id: document.getElementById('prod-category').value, 
+                // 5. 商品图片 URL
+                image_url: document.getElementById('prod-image').value,
+                // 7. 商品详细描述 (TinyMCE 内容)
+                description: detailedDescription,
+                
+                // 6. 规格相关
+                base_price: basePrice, 
+                stock: parseInt(document.getElementById('prod-stock').value) || 0,
+                wholesale_config: document.getElementById('prod-wholesale').value,
+                addon_price: parseFloat(document.getElementById('prod-addon-price').value) || 0,
+                
+                // 9. 排序权重
+                sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
+                // 10. 是否上架
+                is_active: document.getElementById('prod-is-active').checked,
+
+                variants: [] // 默认无规格，保持原有逻辑，等待后续页面管理
+            };
 
             try {
                 // 使用 adminFetch 替换 fetch
