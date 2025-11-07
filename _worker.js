@@ -45,16 +45,6 @@ const mockOrders = new Map();
 // 创建一个新的路由
 const router = Router();
 
-// --- 辅助函数：检查 Admin Token ---
-const withAuth = (request, env) => { // <-- 增加了 'env' 参数
-    const authHeader = request.headers.get('Authorization');
-    // 使用 env.ADMIN_TOKEN 替代 MOCK_ADMIN_TOKEN
-    if (authHeader !== `Bearer ${env.ADMIN_TOKEN}`) { 
-        return error(401, 'Unauthorized');
-    }
-    // 如果 token 正确，什么也不返回，继续执行
-};
-
 
 // --- 公共 API 路由 (和以前一样) ---
 
@@ -136,7 +126,15 @@ router.get('/api/orders/:id', ({ params }) => {
         delivered_card: order.delivered_card,
     });
 });
-
+// --- 辅助函数：检查 Admin Token ---
+const withAuth = (request, env) => { // <-- 增加了 'env' 参数
+    const authHeader = request.headers.get('Authorization');
+    // 使用 env.ADMIN_TOKEN 替代 MOCK_ADMIN_TOKEN
+    if (authHeader !== `Bearer ${env.ADMIN_TOKEN}`) { 
+        return error(401, 'Unauthorized');
+    }
+    // 如果 token 正确，什么也不返回，继续执行
+};
 
 // --- 后台管理 API 路由 (全新！) ---
 
