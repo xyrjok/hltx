@@ -1,6 +1,6 @@
 // _worker.js: Cloudflare Worker D1 数据库集成版本
 // 此文件已移除所有 Mock 数据和逻辑，改为通过 env.MY_HLTX 连接 Cloudflare D1 数据库。
-// 请确保在 Worker 设置中绑定了一个名为 'DB' 的 D1 数据库，并设置了 ADMIN_USER, ADMIN_PASS, ADMIN_TOKEN 环境变量。
+// 请确保在 Worker 设置中绑定了一个名为 'MY_HLTX' 的 D1 数据库，并设置了 ADMIN_USER, ADMIN_PASS, ADMIN_TOKEN 环境变量。
 
 import { Router } from 'itty-router';
 
@@ -570,7 +570,7 @@ export default {
      */
     async fetch(request, env) {
         if (!env.MY_HLTX) {
-            return error(500, "Worker配置错误: 缺少D1数据库绑定'DB'");
+            return error(500, "Worker配置错误: 缺少D1数据库绑定'MY_HLTX'");
         }
         
         // 处理路由
