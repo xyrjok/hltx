@@ -47,7 +47,7 @@
         </nav>
         
         <main class="main-content">
-            <h1>新建/编辑商品 <small class="text-muted fs-5">(创建商品基础信息)</small></h1>
+            <h1 id="page-title">新建商品 <small class="text-muted fs-5">(创建商品基础信息)</small></h1>
             <p>创建一个新的商品，完成后请前往“商品列表”管理规格、价格和库存。</p>
 
             <div class="admin-card p-4">
@@ -134,7 +134,7 @@
 			        </div>
 			    </div>
 			    
-			    <button type="submit" class="button mt-3">
+                <button type="submit" class="button mt-3" id="submit-button">
 			        <i class="fas fa-plus-circle"></i> 创建商品
 			    </button>
 			    <p id="form-message" class="mt-3" style="display: none;"></p>
@@ -148,21 +148,34 @@
 	<script src="/admin/auth.js"></script>
 	<script src="/admin/admin.js"></script>
 	<script>
-	    // TinyMCE 初始化
+        // --- 1. 全局变量 ---
+        const variantsContainer = document.getElementById('variants-container');
+        const addVariantBtn = document.getElementById('add-variant-btn');
+        const formMessage = document.getElementById('form-message');
+        const form = document.getElementById('add-product-form');
+        
+        let editProductId = null; // 用于判断是新建还是编辑
+
+	    // --- 2. TinyMCE 初始化 ---
 	    tinymce.init({
-	        selector: '#prod-desc', // 绑定到商品详细描述的 textarea
+	        selector: '#prod-desc',
 	        language: 'zh_CN',
 	        height: 400,
-	        // 根据仓库中的插件列表，添加常用的富文本插件
 	        plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table paste code help wordcount',
 	        toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image media link | code | fullscreen | help',
-	        // 请确保 '/static/tinymce/' 路径正确
 	        base_url: '/static/tinymce',
+            // 确保 TinyMCE 初始化后再执行加载
+            setup: (editor) => {
+                editor.on('init', () => {
+                    // TinyMCE 加载完毕后，再检查是否为编辑模式
+                    checkEditMode();
+                });
+            }
 	    });
-		// 加载商品分类
+
+		// --- 3. 加载商品分类 (保持不变) ---
         async function loadCategories() {
             try {
-                // 假设分类列表的 API 路径是 /api/admin/categories
                 const categories = await adminFetch('/api/admin/categories');
                 const selectElement = document.getElementById('prod-category');
                 
@@ -174,20 +187,21 @@
                 });
             } catch (error) {
                 console.error("加载分类失败:", error);
-                // 可在此处添加用户友好的错误提示
             }
         }
         
-        // 页面加载完成后调用
-        loadCategories();
-
-        // ************************ 规格配置逻辑 (批发价移入表格) ************************
-        const variantsContainer = document.getElementById('variants-container');
-        const addVariantBtn = document.getElementById('add-variant-btn');
-        const formMessage = document.getElementById('form-message');
-
+        // --- 4. 规格配置逻辑 ---
         // 规格变体模板 - 创建一个表格行 (<tr>)
-        function createVariantRow(name = '', color = '', price = '', wholesale = '', stock = '0', addon = '0.00', sales = '0') {
+        function createVariantRow(variant = {}) {
+            // 提供默认值
+            const name = variant.name || '';
+            const color = variant.color_code || '';
+            const price = variant.price || '';
+            const wholesale = variant.wholesale_config || '';
+            const stock = variant.stock || '0';
+            const addon = variant.addon_price || '0.00';
+            const sales = variant.sales || '0';
+
             const tr = document.createElement('tr');
             tr.className = 'variant-item';
             tr.innerHTML = `
@@ -221,7 +235,6 @@
             // 删除按钮事件
             tr.querySelector('.remove-variant-btn').addEventListener('click', () => {
                 tr.remove();
-                // 如果删除后表格为空，自动添加一个空行
                 if (variantsContainer.children.length === 0) {
                     variantsContainer.appendChild(createVariantRow());
                 }
@@ -234,15 +247,67 @@
             variantsContainer.appendChild(createVariantRow());
         });
 
-        // 页面初始化时确保至少有一行，作为默认规格或第一个规格
-        if (variantsContainer.children.length === 0) {
-            variantsContainer.appendChild(createVariantRow());
+        // (在 checkEditMode 中决定是否添加默认行)
+
+        // --- 5. 检查编辑模式并加载数据 (核心新增) ---
+        async function checkEditMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const productId = urlParams.get('id');
+            
+            if (productId) {
+                // --- 编辑模式 ---
+                editProductId = productId;
+                
+                // 1. 修改 UI
+                document.getElementById('page-title').innerHTML = `编辑商品 (ID: ${productId}) <small class="text-muted fs-5">(修改商品信息)</small>`;
+                document.getElementById('submit-button').innerHTML = '<i class="fas fa-save"></i> 更新商品';
+                document.title = `编辑商品 ID ${productId} - CloudCard`;
+                
+                // 2. 加载数据
+                try {
+                    // (使用我们在 _worker.js 中添加的新路由)
+                    const product = await adminFetch(`/api/admin/products/${productId}`);
+                    
+                    // 3. 填充表单
+                    document.getElementById('prod-name').value = product.name || '';
+                    document.getElementById('prod-short-desc').value = product.short_description || '';
+                    document.getElementById('prod-keywords').value = product.keywords || '';
+                    document.getElementById('prod-category').value = product.category_id || '';
+                    document.getElementById('prod-image').value = product.image_url || '';
+                    
+                    // (等待 TinyMCE 加载完成)
+                    tinymce.get('prod-desc').setContent(product.description || '');
+                    
+                    document.getElementById('prod-sort-weight').value = product.sort_weight || 0;
+                    document.getElementById('prod-is-active').checked = product.is_active;
+                    
+                    // 4. 填充规格
+                    variantsContainer.innerHTML = ''; // 清空
+                    if (product.variants && product.variants.length > 0) {
+                        product.variants.forEach(variant => {
+                            variantsContainer.appendChild(createVariantRow(variant));
+                        });
+                    } else {
+                        // 如果商品没有规格 (旧数据?)，添加一个空行
+                        variantsContainer.appendChild(createVariantRow());
+                    }
+                    
+                } catch (error) {
+                    formMessage.textContent = `加载商品数据失败: ${error.message}`;
+                    formMessage.className = 'mt-3 text-danger';
+                    formMessage.style.display = 'block';
+                }
+                
+            } else {
+                // --- 新建模式 ---
+                // 页面初始化时确保至少有一行
+                if (variantsContainer.children.length === 0) {
+                    variantsContainer.appendChild(createVariantRow());
+                }
+            }
         }
-        // ************************ 结束规格配置逻辑 (批发价移入表格) ************************
-
-
-        const form = document.getElementById('add-product-form');
         
+        // --- 6. 提交表单 (修改) ---
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             formMessage.style.display = 'none';
@@ -251,13 +316,10 @@
             const detailedDescription = tinymce.get('prod-desc').getContent();
             
             const variantRows = variantsContainer.querySelectorAll('.variant-item');
-            
             const variantsData = [];
 
-            // 确定是否是多规格商品：行数大于 1，或者行数等于 1 但规格名称不为空
+            // (校验逻辑保持不变)
             const isMultiSpec = variantRows.length > 1 || (variantRows.length === 1 && variantRows[0].querySelector('.spec-dimension-name').value.trim() !== '');
-
-            // --- 校验和数据收集 ---
             let hasError = false;
             
             for (const row of variantRows) {
@@ -272,12 +334,11 @@
                 const name = specNameInput.value.trim();
                 const colorCode = specColorCodeInput.value.trim();
                 const price = parseFloat(priceInput.value);
-                const wholesaleConfig = wholesaleInput.value.trim(); // 获取独立的批发配置
+                const wholesaleConfig = wholesaleInput.value.trim();
                 const stock = parseInt(stockInput.value) || 0;
                 const addon_price = parseFloat(addonInput.value) || 0;
                 const sales = parseInt(salesInput.value) || 0;
                 
-                // 多规格模式下，规格名称不能留空
                 if (isMultiSpec && name === '') {
                     formMessage.textContent = '多规格商品中规格名称不能为空。';
                     formMessage.className = 'mt-3 text-danger';
@@ -285,8 +346,6 @@
                     hasError = true;
                     break;
                 }
-                
-                // 价格校验 (适用于所有模式)
                 if (isNaN(price) || price <= 0) {
                     formMessage.textContent = `规格 "${name || '默认/单规格'}" 的售价必须是有效数字且大于 0。`;
                     formMessage.className = 'mt-3 text-danger';
@@ -294,8 +353,6 @@
                     hasError = true;
                     break;
                 }
-                
-                // 如果是单规格模式，且当前行名称为空，但价格有效，则跳过后续行，仅处理第一行
                 if (!isMultiSpec && variantsData.length > 0) {
                     continue; 
                 }
@@ -306,29 +363,17 @@
                     price: price, 
                     stock: stock, 
                     addon_price: addon_price, 
-                    wholesale_config: wholesaleConfig, // 提交当前的批发配置
+                    wholesale_config: wholesaleConfig,
                     sales: sales, 
                 });
             }
-
-            if (hasError) {
-                return;
-            }
-
-            // --- 最终单规格数据处理 ---
+            if (hasError) return;
             if (!isMultiSpec) {
-                // 如果是单规格，variantsData 应该只有第一行数据
-                if (variantsData.length > 1) {
-                    variantsData.splice(1); 
-                }
+                if (variantsData.length > 1) variantsData.splice(1); 
                 if (variantsData.length > 0) {
-                    // 强制单规格名称为 "默认规格"
                     variantsData[0].name = "默认规格"; 
-                    // (保留 color_code，即使是单规格也可能需要)
                 }
             }
-
-            // 确保 variantsData 至少有一项
             if (variantsData.length === 0) {
                  formMessage.textContent = '至少需要一个规格配置。';
                  formMessage.className = 'mt-3 text-danger';
@@ -336,46 +381,69 @@
                  return;
             }
 
-            const newProduct = {
-                // ... 其他字段 ...
+            // --- 组装数据 (保持不变) ---
+            const productData = {
                 name: document.getElementById('prod-name').value,
                 short_description: document.getElementById('prod-short-desc').value,
                 keywords: document.getElementById('prod-keywords').value,
                 category_id: document.getElementById('prod-category').value, 
                 image_url: document.getElementById('prod-image').value,
                 description: detailedDescription,
-                // spec_name 已移除，后端不再需要
                 sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
                 is_active: document.getElementById('prod-is-active').checked,
-                
 	            variants: variantsData 
 	        };
 
+            // --- 核心修改：区分新建 (POST) 和更新 (PUT) ---
             try {
-                // --- 关键修复：确保 body 传递的是对象 (newProduct)，而不是 JSON 字符串 ---
-                await adminFetch('/api/admin/products', {
-                    method: 'POST',
-                    body: newProduct 
-                });
-                // --- 关键修复结束 ---
+                let apiEndpoint;
+                let apiMethod;
+                let successMessage;
 
-                form.reset();
-                // 清空并重新添加默认变体行
-                while (variantsContainer.firstChild) {
-                    variantsContainer.removeChild(variantsContainer.firstChild);
+                if (editProductId) {
+                    // --- 更新 (编辑) ---
+                    apiEndpoint = `/api/admin/products/${editProductId}`;
+                    apiMethod = 'PUT';
+                    successMessage = '更新成功！';
+                } else {
+                    // --- 创建 (新建) ---
+                    apiEndpoint = '/api/admin/products';
+                    apiMethod = 'POST';
+                    successMessage = '创建成功！';
                 }
-                variantsContainer.appendChild(createVariantRow());
-                
-                formMessage.textContent = '创建成功！';
+
+                await adminFetch(apiEndpoint, {
+                    method: apiMethod,
+                    body: productData // (保持我们之前的修复，传递对象)
+                });
+
+                formMessage.textContent = successMessage;
                 formMessage.className = 'mt-3 text-success';
                 formMessage.style.display = 'block';
+
+                if (!editProductId) {
+                    // 如果是创建，则重置表单
+                    form.reset();
+                    tinymce.get('prod-desc').setContent('');
+                    while (variantsContainer.firstChild) {
+                        variantsContainer.removeChild(variantsContainer.firstChild);
+                    }
+                    variantsContainer.appendChild(createVariantRow());
+                } else {
+                    // 如果是更新，则停留在页面
+                }
                 
             } catch (error) {
-                formMessage.textContent = error.message;
+                formMessage.textContent = `操作失败: ${error.message}`;
                 formMessage.className = 'mt-3 text-danger';
                 formMessage.style.display = 'block';
             }
         });
-    </script>
+
+        // --- 7. 页面启动 ---
+        // (必须在 TinyMCE init 之外调用)
+        loadCategories();
+        // (checkEditMode 会在 TinyMCE setup 中被调用)
+	</script>
 </body>
 </html>
