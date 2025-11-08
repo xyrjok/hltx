@@ -28,19 +28,31 @@ async function adminFetch(url, options = {}) {
         throw new Error("未找到管理员令牌，请重新登录。");
     }
 
-    const defaultHeaders = {
-        'Authorization': `Bearer ${token}`,
-        // 只有当有 body 时才设置 Content-Type
-        'Content-Type': options.body ? 'application/json' : undefined
-    };
+    // START: 添加修改 - 修复 JSON 序列化和 Content-Type
+    let processedBody = options.body;
+    const authHeader = { 'Authorization': `Bearer ${token}` };
 
+    // 如果 body 是对象，自动 JSON 序列化
+    if (processedBody && typeof processedBody === 'object') {
+        processedBody = JSON.stringify(processedBody);
+        
+        // 只有在没有手动设置 Content-Type 的情况下，才自动设置
+        const hasContentType = options.headers && 
+                               (options.headers['Content-Type'] || options.headers['content-type']);
+        if (!hasContentType) {
+            authHeader['Content-Type'] = 'application/json';
+        }
+    }
+    
     const finalOptions = {
         ...options,
+        body: processedBody, // 使用序列化后的 body
         headers: {
-            ...defaultHeaders,
+            ...authHeader,
             ...options.headers
         }
     };
+    // END: 添加修改
 
     const response = await fetch(url, finalOptions);
 
