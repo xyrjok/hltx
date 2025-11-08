@@ -324,10 +324,17 @@
                 if (variantsData.length > 0) {
                     // 强制单规格名称为 "默认规格"
                     variantsData[0].name = "默认规格"; 
-                    delete variantsData[0].color_code; 
+                    // (保留 color_code，即使是单规格也可能需要)
                 }
             }
 
+            // 确保 variantsData 至少有一项
+            if (variantsData.length === 0) {
+                 formMessage.textContent = '至少需要一个规格配置。';
+                 formMessage.className = 'mt-3 text-danger';
+                 formMessage.style.display = 'block';
+                 return;
+            }
 
             const newProduct = {
                 // ... 其他字段 ...
@@ -337,8 +344,7 @@
                 category_id: document.getElementById('prod-category').value, 
                 image_url: document.getElementById('prod-image').value,
                 description: detailedDescription,
-                // 无全局规格名称
-                spec_name: '', 
+                // spec_name 已移除，后端不再需要
                 sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
                 is_active: document.getElementById('prod-is-active').checked,
                 
@@ -346,11 +352,12 @@
 	        };
 
             try {
-                // 使用 adminFetch 替换 fetch
+                // --- 关键修复：确保 body 传递的是对象 (newProduct)，而不是 JSON 字符串 ---
                 await adminFetch('/api/admin/products', {
                     method: 'POST',
-                    body: newProduct
+                    body: newProduct 
                 });
+                // --- 关键修复结束 ---
 
                 form.reset();
                 // 清空并重新添加默认变体行
