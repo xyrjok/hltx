@@ -252,28 +252,52 @@ router.get('/api/admin/products', withAuth, async (request, env) => {
 });
 
 
-// 添加新商品 (包含所有新增字段)
+// --- 关键修复：替换此路由 ---
+// 添加新商品 (后台管理) - 适配前端提交的 variants 数组
 router.post('/api/admin/products', withAuth, async (request, env) => {
-    const { 
-        name, description, base_price, image_url, variants, 
-        short_description, keywords, category_id, stock, 
-        wholesale_config, addon_price, sort_weight, is_active 
-    } = await request.json();
     
-    // --- 校验 ---
-    if (!name || isNaN(parseFloat(base_price)) || parseFloat(base_price) <= 0) {
-        return Response.json({ success: false, message: '商品名称和有效价格是必填项' }, { status: 400 });
+    // --- 1. 获取前端发送的完整 body ---
+    const body = await request.json();
+    const { 
+        name, description, image_url, variants, 
+        short_description, keywords, category_id, 
+        sort_weight, is_active 
+    } = body;
+    
+    // --- 2. 校验 (基于新的数据结构) ---
+    if (!name) {
+        return error(400, '商品名称是必填项');
     }
+    // 校验前端是否至少提交了一个规格
+    if (!variants || !Array.isArray(variants) || variants.length === 0) {
+        return error(400, '至少需要一个商品规格');
+    }
+    
+    // --- 3. 从第一个规格中提取数据以存入 Products 主表 ---
+    // 您的前端设计中，商品主表的价格/库存信息来源于规格
+    const firstVariant = variants[0];
+    
+    // 提取这些值用于插入主表
+    const base_price = parseFloat(firstVariant.price);
+    const stock = parseInt(firstVariant.stock) || 0;
+    const addon_price = parseFloat(firstVariant.addon_price) || 0;
+    const wholesale_config = firstVariant.wholesale_config || '';
+
+    // 校验从规格中提取的价格
+    if (isNaN(base_price) || base_price <= 0) {
+        // 保持此错误消息，因为前端会显示它
+        return error(400, '商品名称和有效价格是必填项');
+    }
+    // 校验分类
     if (!category_id) {
-        return Response.json({ success: false, message: '所属分类是必填项' }, { status: 400 });
+        return error(400, '所属分类是必填项');
     }
     
     const isActiveInt = is_active ? 1 : 0;
-    // 如果有规格，将其 JSON 化存储
-    let variantsJson = variants && Array.isArray(variants) && variants.length > 0 
-                       ? JSON.stringify(variants) : null;
+    // 将完整的规格数组 JSON 化，存入 variants_json
+    let variantsJson = JSON.stringify(variants);
     
-    // --- D1 数据库插入 ---
+    // --- 4. D1 数据库插入 (使用从规格中提取的数据) ---
     try {
         const stmt = env.MY_HLTX.prepare(
             `INSERT INTO Products (
@@ -288,25 +312,29 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
         );
         
         await stmt.bind(
-            name, description, parseFloat(base_price), image_url || '', variantsJson, // <-- 修改后
-            short_description || '',
-            keywords || '',          
-            parseInt(category_id),   
-            parseInt(stock) || 0,    
-            wholesale_config || '',  
-            parseFloat(addon_price) || 0, 
-            parseInt(sort_weight) || 0, 
-            isActiveInt              
+            name,                      // ?1
+            description,               // ?2
+            base_price,                // ?3 (来自 firstVariant.price)
+            image_url || '',           // ?4
+            variantsJson,              // ?5 (完整的 variants 数组)
+            short_description || '',   // ?6
+            keywords || '',            // ?7
+            parseInt(category_id),     // ?8
+            stock,                     // ?9 (来自 firstVariant.stock)
+            wholesale_config,          // ?10 (来自 firstVariant.wholesale_config)
+            addon_price,               // ?11 (来自 firstVariant.addon_price)
+            parseInt(sort_weight) || 0,// ?12
+            isActiveInt                // ?13
         ).run();
 
         const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
         return json({ id: result.id, success: true }, { status: 201 });
     } catch (e) {
         console.error("D1 Insert Error:", e);
-        // 如果是 UNIQUE 约束错误，可以返回更友好的信息
         return error(500, '创建商品失败: ' + e.message); 
     }
 });
+// --- 关键修复结束 ---
 
 
 // 删除商品
