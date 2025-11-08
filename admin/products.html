@@ -1,304 +1,295 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品管理 - CloudCard</title>
-    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品管理 - CloudCard</title>
+    
 	<link rel="stylesheet" href="/static/bootstrap.min.css"/>
 	<link rel="stylesheet" href="/static/all.min.css"/>
-    <link rel="stylesheet" href="/admin/admin.css"/>
+    <link rel="stylesheet" href="/admin/admin.css"/>
 </head>
 <body>
-    <div class="admin-layout">
-        <nav class="sidebar">
-            <h2>CloudCard</h2>
-            <ul>
-                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
-                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
-                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
-                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
-                <li class="submenu-item active"><a href="/admin/products.html">商品列表</a></li>
-                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
-                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
-                <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
-                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
-                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
-                <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
-                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
-            </ul>
-            <button id="logout-button" class="button button-secondary">
-                <i class="fas fa-sign-out-alt"></i> 退出登录
-            </button>
-        </nav>
-        
-        <main class="main-content">
-            <h1>商品管理 <small class="text-muted fs-5">(商品列表)</small></h1>
-            
-            <div class="admin-card p-3">
-                
-                <div class="admin-toolbar mb-3">
-                    <div class="input-group search-input">
-                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" id="product-search" class="form-control" placeholder="搜索商品名称/ID..." onkeyup="filterProducts()">
-                    </div>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
+                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
+                <li class="submenu-item active"><a href="/admin/products.html">商品列表</a></li>
+                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
+                <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
+                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>商品管理 <small class="text-muted fs-5">(商品列表)</small></h1>
+            
+            <div class="admin-card p-3">
+                
+                <div class="admin-toolbar mb-3">
+                    <div class="input-group search-input">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="product-search" class="form-control" placeholder="搜索商品名称/ID..." onkeyup="filterProducts()">
+                    </div>
 
-                    <div class="select-group">
-                        <label for="sort-by" class="form-label mb-0 me-2">排序：</label>
-                        <select id="sort-by" class="form-select" onchange="sortProducts()">
-                            <option value="id_desc">ID (倒序)</option>
-                            <option value="name_asc">名称 (A-Z)</option>
-                            <option value="price_asc">价格 (升序)</option>
-                            <option value="price_desc">价格 (降序)</option>
-                            <option value="stock_desc">库存 (多到少)</option>
-                            <option value="sold_desc">销量 (多到少)</option>
-                        </select>
-                    </div>
+                    <div class="select-group">
+                        <label for="sort-by" class="form-label mb-0 me-2">排序：</label>
+                        <select id="sort-by" class="form-select" onchange="sortProducts()">
+                            <option value="id_desc">ID (倒序)</option>
+                            <option value="name_asc">名称 (A-Z)</option>
+                            <option value="price_asc">价格 (升序)</option>
+                            <option value="price_desc">价格 (降序)</option>
+                            <option value="stock_desc">库存 (多到少)</option>
+                            <option value="sold_desc">销量 (多到少)</option>
+                        </select>
+                    </div>
 
-                    <button class="btn button button-info" onclick="exportProducts()">
-                        <i class="fas fa-file-export"></i> 导出商品
-                    </button>
-                    
-                    <button class="btn button button-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
-                        <i class="fas fa-file-import"></i> 导入商品/库存
-                    </button>
-                    
-                    <a href="/admin/products_new.html" class="btn button ms-auto">
-                        <i class="fas fa-plus-circle"></i> 新建商品
-                    </a>
-                </div>
+                    <button class="btn button button-info" onclick="exportProducts()">
+                        <i class="fas fa-file-export"></i> 导出商品
+                    </button>
+                    
+                    <button class="btn button button-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
+                        <i class="fas fa-file-import"></i> 导入商品/库存
+                    </button>
+                    
+                    <a href="/admin/products_new.html" class="btn button ms-auto">
+                        <i class="fas fa-plus-circle"></i> 新建商品
+                    </a>
+                </div>
 
-                <div class="table-responsive">
-                    <table class="admin-table table table-hover">
-                        <thead>
-                            <tr>
-                                <th>ID <i class="fas fa-sort-numeric-down-alt"></i></th>
-                                <th>商品名称 <i class="fas fa-sort-alpha-down"></i></th>
-                                <th>价格 (元) <i class="fas fa-sort"></i></th>
-                                <th>库存/已售 <i class="fas fa-sort"></i></th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="product-list-body">
-                            <tr><td colspan="5" class="text-center">正在加载商品...</td></tr>
-                        </tbody>
-                    </table>
-          _D;     </div>
-                
-                <p id="list-message" class="mt-3" style="display: none;"></p>
-            </div>
-            
-        </main>
-    </div>
-    
-    <div class="modal fade" tabindex="-1" id="importModal" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">导入商品/库存</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>选择导入的类型和文件：</p>
-                    <div class="mb-3">
-                        <label for="importType" class="form-label">导入类型</label>
-                        <select id="importType" class="form-select">
-                            <option value="products">完整商品数据 (.json)</option>
-                            <option value="stock">更新商品库存/价格 (.csv)</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-section class="job-desciption">
-                        <label for="importFile" class="form-label">选择文件</label>
-          _A;           <input type="file" id="importFile" class="form-control">
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" value="" id="importOverwrite">
-                        <label class="form-check-label" for="importOverwrite">
-                            覆盖现有数据 (仅限完整商品数据导入)
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                  _C; <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    <button type="button" class="btn btn-primary" onclick="handleImport()">开始导入</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <script src="/static/bootstrap.bundle.min.js"></script>
-    <script src="/admin/auth.js"></script>
-    <script src="/admin/admin.js"></script> 
+                <div class="table-responsive">
+                    <table class="admin-table table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID <i class="fas fa-sort-numeric-down-alt"></i></th>
+                                <th>商品名称 <i class="fas fa-sort-alpha-down"></i></th>
+                                <th>价格 (元) <i class="fas fa-sort"></i></th>
+                                <th>库存/已售 <i class="fas fa-sort"></i></th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="product-list-body">
+                            <tr><td colspan="5" class="text-center">正在加载商品...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <p id="list-message" class="mt-3" style="display: none;"></p>
+            </div>
+            
+        </main>
+    </div>
+    
+    <div class="modal fade" tabindex="-1" id="importModal" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">导入商品/库存</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>选择导入的类型和文件：</p>
+                    <div class="mb-3">
+                        <label for="importType" class="form-label">导入类型</label>
+                        <select id="importType" class="form-select">
+                            <option value="products">完整商品数据 (.json)</option>
+                            <option value="stock">更新商品库存/价格 (.csv)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">选择文件</label>
+                        <input type="file" id="importFile" class="form-control">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" value="" id="importOverwrite">
+                        <label class="form-check-label" for="importOverwrite">
+                            覆盖现有数据 (仅限完整商品数据导入)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" onclick="handleImport()">开始导入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/admin/auth.js"></script>
+    <script src="/admin/admin.js"></script>	
 	<script>
-        // 退出登录和 token 获取逻辑已移动到 utils.js
+        // 退出登录和 token 获取逻辑已移动到 utils.js
 
-        const productListBodyEl = document.getElementById('product-list-body');
-        const listMessageEl = document.getElementById('list-message');
-        
-        let productsData = [];
+        const productListBodyEl = document.getElementById('product-list-body');
+        const listMessageEl = document.getElementById('list-message');
+        
+        let productsData = [];
 
-        // 1. 加载现有商品
-        async function loadProducts(sortValue = 'id_desc', searchValue = '') {
-            listMessageEl.style.display = 'none';
-            productListBodyEl.innerHTML = '<tr><td colspan="5" class="text-center">正在加载商品...</td></tr>';
+        // 1. 加载现有商品
+        async function loadProducts(sortValue = 'id_desc', searchValue = '') {
+            listMessageEl.style.display = 'none';
+            productListBodyEl.innerHTML = '<tr><td colspan="5" class="text-center">正在加载商品...</td></tr>';
 
-            try {
-                // 使用 adminFetch 替换 fetch
-                productsData = await adminFetch('/api/admin/products');
-                
-                // --- 模拟数据增强 (如果 API 缺失 stock/sold) ---
-                if (productsData.length > 0 && productsData[0].stock === undefined) {
-                    productsData = productsData.map((prod, index) => ({
-                        ...prod,
-                        stock: Math.floor(Math.random() * 100) + 10, // 模拟库存
-                        sold: Math.floor(Math.random() * 50) + 5 // 模拟销量
-                    }));
-                }
-                // ---------------------------------------------
-                
-                displayProducts(productsData, sortValue, searchValue);
+            try {
+                // 使用 adminFetch 替换 fetch
+                productsData = await adminFetch('/api/admin/products');
+                
+                // --- 模拟数据增强 (如果 API 缺失 stock/sold) ---
+                if (productsData.length > 0 && productsData[0].stock === undefined) {
+                    productsData = productsData.map((prod, index) => ({
+                        ...prod,
+                        stock: Math.floor(Math.random() * 100) + 10, // 模拟库存
+                        sold: Math.floor(Math.random() * 50) + 5 // 模拟销量
+                    }));
+                }
+                // ---------------------------------------------
+                
+                displayProducts(productsData, sortValue, searchValue);
 
-            } catch (error) {
-                productListBodyEl.innerHTML = `<tr><td colspan="5" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
-}
-        }
-        
-        // 2. 显示商品列表 (包含搜索和排序逻辑)
-        function displayProducts(products, sortValue, searchValue) {
-            
-            // A. 过滤 (搜索)
-            const filteredProducts = products.filter(prod => 
-                prod.name.toLowerCase().includes(searchValue.toLowerCase()) || 
-                String(prod.id).includes(searchValue)
-            );
+            } catch (error) {
+                productListBodyEl.innerHTML = `<tr><td colspan="5" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
+            }
+        }
+        
+        // 2. 显示商品列表 (包含搜索和排序逻辑)
+        function displayProducts(products, sortValue, searchValue) {
+            
+            // A. 过滤 (搜索)
+            const filteredProducts = products.filter(prod => 
+                prod.name.toLowerCase().includes(searchValue.toLowerCase()) || 
+                String(prod.id).includes(searchValue)
+            );
 
-            // B. 排序
-            const [field, direction] = sortValue.split('_');
-            filteredProducts.sort((a, b) => {
-                let valA = a[field];
-                let valB = b[field];
+            // B. 排序
+            const [field, direction] = sortValue.split('_');
+            filteredProducts.sort((a, b) => {
+                let valA = a[field];
+                let valB = b[field];
 
-BODY, DIV, P, H1, H2, H3, H4, H5, H6, UL, OL, LI, DL, DT, DD, TABLE, TH, TD, FORM, FIELDSET, LEGEND, INPUT, TEXTAREA, SELECT, BUTTON {
-                if (typeof valA === 'string') {
-                    valA = valA.localeCompare(valB, 'zh-CN', {sensitivity: 'base'});
-                    valB = 0;
-                }
+                if (typeof valA === 'string') {
+                    valA = valA.localeCompare(valB, 'zh-CN', {sensitivity: 'base'});
+                    valB = 0;
+                }
 
-                if (valA < valB) return direction === 'asc' ? -1 : 1;
-                if (valA > valB) return direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-
-
-            productListBodyEl.innerHTML = '';
-            
-            if (filteredProducts.length === 0) {
-                productListBodyEl.innerHTML = `<tr><td colspan="5" class="text-center">${products.length === 0 ? '暂无商品。' : '未找到匹配的商品。'}</td></tr>`;
-                return;
-            }
-
-            filteredProducts.forEach(prod => {
-section class="job-desciption">
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${prod.id}</td>
-Â                  <td><strong>${prod.name}</strong></td>
-                    <td>￥${prod.base_price ? prod.base_price.toFixed(2) : 'N/A'}</td>
-                    <td>
-                        <span class="badge ${prod.stock > 10 ? 'bg-success' : 'bg-warning'}">${prod.stock}</span> / 
-                        <span class="badge bg-secondary">${prod.sold || 0}</span>
-                    </td>
-                    <td class="table-actions">
-                        <button class="btn button-info button-sm me-1" onclick="editProduct(${prod.id})">
-                            <i class="fas fa-edit"></i> 编辑
-                        </button>
-              section class="job-desciption">
-                  <button class="btn button-danger button-sm" onclick="deleteProduct(${prod.id})">
-                            <i class="fas fa-trash"></i> 删除
-                        </button>
-                    </td>
-      t;         `;
-                productListBodyEl.appendChild(row);
-            });
-        }
-        
-        // 3. 搜索功能
-        function filterProducts() {
-            const searchInput = document.getElementById('product-search').value;
-            const sortValue = document.getElementById('sort-by').value;
-            displayProducts(productsData, sortValue, searchInput);
-        }
-
-        // 4. 排序功能
-        function sortProducts() {
-            const searchInput = document.getElementById('product-search').value;
-            const sortValue = document.getElementById('sort-by').value;
-            displayProducts(productsData, sortValue, searchInput);
-        }
-        
-section class="job-desciption">
-                // 5. 编辑商品
-        function editProduct(id) {
-            // 移除 alert
-            // alert('编辑功能: 准备编辑 ID 为 ' + id + ' 的商品。 (应跳转到 /admin/products_new.html?id=' + id + ' 并加载数据)');
-            // 实际操作：执行跳转
-            window.location.href = `/admin/products_new.html?id=${id}`;
-        }
-                // 6. 删除商品
-        async function deleteProduct(id) {
-            if (!confirm(`确定要删除 ID 为 ${id} 的商品吗？`)) return;
-
-            try {
-                // 使用 adminFetch 替换 fetch
-                await adminFetch(`/api/admin/products/${id}`, {
-                    method: 'DELETE',
-                });
-                
-                listMessageEl.textContent = `商品 ID ${id} 删除成功`; // (模拟) 已移除
-                listMessageEl.className = 'mt-3 text-success';
-                listMessageEl.style.display = 'block';
-
-  g class="job-desciption">
-              // 重新加载列表以更新 UI
-                await loadProducts(document.getElementById('sort-by').value, document.getElementById('product-search').value);
-                
-            } catch (error) {
-                listMessageEl.textContent = `删除失败: ${error.message}`;
-                listMessageEl.className = 'mt-3 text-danger';
-                listMessageEl.style.display = 'block';
-            }
-        }
-        
-        // 7. 导出商品 (Placeholder)
-section class="job-desciption">
-        function exportProducts() {
-            alert('导出功能: 将根据当前筛选和排序条件，导出商品数据 (.csv/.json)，包含已售和库存信息。');
-        }
-        
-        // 8. 导入处理 (Placeholder)
-        function handleImport() {
-             const importType = document.getElementById('importType').value;
-             const importFile = document.getElementById('importFile').files[0];
-             const overwrite = document.getElementById('importOverwrite').checked;
-             
-             if (!importFile) {
-                 alert('请选择一个文件进行导入！');
-                 return;
-             }
-             
-             // 关闭模态框 (Bootstrap 5 API)
-             const importModalEl = document.getElementById('importModal');
-             const modal = bootstrap.Modal.getInstance(importModalEl) || new bootstrap.Modal(importModalEl);
-section class="job-desciption">
-             modal.hide();
-
-             alert(`开始导入 ${importType === 'products' ? '完整商品数据' : '库存/价格'}，文件名为: ${importFile.name}，是否覆盖: ${overwrite ? '是' : '否'}。请将文件发送到后端 API 进行处理。`);
-        }
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
 
 
-        // 页面加载时运行
-        loadProducts();
-    </script>
+            productListBodyEl.innerHTML = '';
+            
+            if (filteredProducts.length === 0) {
+                productListBodyEl.innerHTML = `<tr><td colspan="5" class="text-center">${products.length === 0 ? '暂无商品。' : '未找到匹配的商品。'}</td></tr>`;
+                return;
+            }
+
+            filteredProducts.forEach(prod => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${prod.id}</td>
+                    <td><strong>${prod.name}</strong></td>
+                    <td>￥${prod.base_price ? prod.base_price.toFixed(2) : 'N/A'}</td>
+                    <td>
+                        <span class="badge ${prod.stock > 10 ? 'bg-success' : 'bg-warning'}">${prod.stock}</span> / 
+                        <span class="badge bg-secondary">${prod.sold || 0}</span>
+                    </td>
+                    <td class="table-actions">
+                        <button class="btn button-info button-sm me-1" onclick="editProduct(${prod.id})">
+                            <i class="fas fa-edit"></i> 编辑
+                        </button>
+                        <button class="btn button-danger button-sm" onclick="deleteProduct(${prod.id})">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                `;
+                productListBodyEl.appendChild(row);
+            });
+        }
+        
+        // 3. 搜索功能
+        function filterProducts() {
+            const searchInput = document.getElementById('product-search').value;
+            const sortValue = document.getElementById('sort-by').value;
+            displayProducts(productsData, sortValue, searchInput);
+        }
+
+        // 4. 排序功能
+        function sortProducts() {
+            const searchInput = document.getElementById('product-search').value;
+            const sortValue = document.getElementById('sort-by').value;
+            displayProducts(productsData, sortValue, searchInput);
+        }
+        
+        // 5. 编辑商品 (已修复)
+        function editProduct(id) {
+            // 实际操作：window.location.href = `/admin/products_new.html?id=${id}`;
+            window.location.href = `/admin/products_new.html?id=${id}`;
+        }
+
+        // 6. 删除商品
+        async function deleteProduct(id) {
+            if (!confirm(`确定要删除 ID 为 ${id} 的商品吗？`)) return;
+
+            try {
+                // 使用 adminFetch 替换 fetch
+                await adminFetch(`/api/admin/products/${id}`, {
+                    method: 'DELETE',
+                });
+                
+                listMessageEl.textContent = `商品 ID ${id} 删除成功`;
+                listMessageEl.className = 'mt-3 text-success';
+                listMessageEl.style.display = 'block';
+
+                // 重新加载列表以更新 UI
+                await loadProducts(document.getElementById('sort-by').value, document.getElementById('product-search').value);
+                
+            } catch (error) {
+                listMessageEl.textContent = `删除失败: ${error.message}`;
+                listMessageEl.className = 'mt-3 text-danger';
+                listMessageEl.style.display = 'block';
+            }
+        }
+        
+        // 7. 导出商品 (Placeholder)
+        function exportProducts() {
+            alert('导出功能: 将根据当前筛选和排序条件，导出商品数据 (.csv/.json)，包含已售和库存信息。');
+        }
+        
+        // 8. 导入处理 (Placeholder)
+        function handleImport() {
+             const importType = document.getElementById('importType').value;
+             const importFile = document.getElementById('importFile').files[0];
+             const overwrite = document.getElementById('importOverwrite').checked;
+             
+             if (!importFile) {
+                 alert('请选择一个文件进行导入！');
+                 return;
+             }
+             
+             // 关闭模态框 (Bootstrap 5 API)
+             const importModalEl = document.getElementById('importModal');
+             const modal = bootstrap.Modal.getInstance(importModalEl) || new bootstrap.Modal(importModalEl);
+             modal.hide();
+
+             alert(`开始导入 ${importType === 'products' ? '完整商品数据' : '库存/价格'}，文件名为: ${importFile.name}，是否覆盖: ${overwrite ? '是' : '否'}。请将文件发送到后端 API 进行处理。`);
+        }
+
+
+        // 页面加载时运行
+        loadProducts();
+    </script>
 </body>
 </html>
