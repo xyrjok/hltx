@@ -349,7 +349,7 @@
                 // 使用 adminFetch 替换 fetch
                 await adminFetch('/api/admin/products', {
                     method: 'POST',
-                    body: JSON.stringify(newProduct)
+                    body: newProduct
                 });
 
                 form.reset();
