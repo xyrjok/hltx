@@ -242,17 +242,24 @@ router.get('/api/orders/:id', async ({ params }, env) => {
 // 获取所有商品列表
 router.get('/api/admin/products', withAuth, async (request, env) => {
     try {
+        // (保持您之前的修改，stock/sold 是模拟的，从主表获取)
         const { results } = await env.MY_HLTX.prepare(
-            "SELECT id, name, base_price, is_active, sort_weight FROM Products ORDER BY id DESC"
+            "SELECT id, name, base_price, stock, is_active, sort_weight FROM Products ORDER BY id DESC"
         ).all();
-        return json(results);
+        
+        // 模拟销量 (如果需要)
+        const finalResults = results.map(p => ({
+            ...p,
+            sold: p.sold || 0 // 假设 sold 字段不存在，默认为 0
+        }));
+        
+        return json(finalResults);
     } catch (e) {
         return error(500, '获取商品列表失败: ' + e.message);
     }
 });
 
 
-// --- 关键修复：替换此路由 ---
 // 添加新商品 (后台管理) - 适配前端提交的 variants 数组
 router.post('/api/admin/products', withAuth, async (request, env) => {
     
@@ -274,30 +281,24 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
     }
     
     // --- 3. 从第一个规格中提取数据以存入 Products 主表 ---
-    // 您的前端设计中，商品主表的价格/库存信息来源于规格
     const firstVariant = variants[0];
     
-    // 提取这些值用于插入主表
     const base_price = parseFloat(firstVariant.price);
     const stock = parseInt(firstVariant.stock) || 0;
     const addon_price = parseFloat(firstVariant.addon_price) || 0;
     const wholesale_config = firstVariant.wholesale_config || '';
 
-    // 校验从规格中提取的价格
     if (isNaN(base_price) || base_price <= 0) {
-        // 保持此错误消息，因为前端会显示它
         return error(400, '商品名称和有效价格是必填项');
     }
-    // 校验分类
     if (!category_id) {
         return error(400, '所属分类是必填项');
     }
     
     const isActiveInt = is_active ? 1 : 0;
-    // 将完整的规格数组 JSON 化，存入 variants_json
     let variantsJson = JSON.stringify(variants);
     
-    // --- 4. D1 数据库插入 (使用从规格中提取的数据) ---
+    // --- 4. D1 数据库插入 ---
     try {
         const stmt = env.MY_HLTX.prepare(
             `INSERT INTO Products (
@@ -334,20 +335,132 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
         return error(500, '创建商品失败: ' + e.message); 
     }
 });
-// --- 关键修复结束 ---
 
 
 // 删除商品
 router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     try {
         const result = await env.MY_HLTX.prepare("DELETE FROM Products WHERE id = ?1").bind(params.id).run();
-        // 检查删除是否成功
         if (result.changes === 0) {
             return error(404, '商品未找到或删除失败');
         }
         return json({ success: true });
     } catch (e) {
         return error(500, '删除商品失败: ' + e.message);
+    }
+});
+
+// --- 新增路由 (1/2): 获取单个商品详情 (后台管理) ---
+router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
+    try {
+        const productId = params.id;
+        // (从 public API 复制过来，但移除了 is_active = 1 的限制)
+        const product = await env.MY_HLTX.prepare(
+            "SELECT * FROM Products WHERE id = ?1"
+        ).bind(productId).first();
+
+        if (!product) return error(404, '商品未找到');
+
+        // 解析 variants_json
+        if (product.variants_json) {
+            try {
+                product.variants = JSON.parse(product.variants_json);
+            } catch (e) {
+                console.error("Failed to parse variants_json for admin:", e);
+                product.variants = []; // 解析失败则返回空数组
+            }
+        } else {
+             product.variants = []; // 兼容没有此字段的情况
+        }
+        
+        // (可选：如果您的旧数据依赖 ProductVariants 表，可以在此添加兼容查询)
+        
+        delete product.variants_json; // 不将此原始字段发送给前端
+        return json(product);
+
+    } catch (e) {
+        return error(500, '获取商品详情失败: ' + e.message);
+    }
+});
+
+// --- 新增路由 (2/2): 更新商品 (后台管理) ---
+router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
+    const productId = params.id;
+    
+    // --- 1. 获取前端发送的完整 body ---
+    const body = await request.json();
+    const { 
+        name, description, image_url, variants, 
+        short_description, keywords, category_id, 
+        sort_weight, is_active 
+    } = body;
+
+    // --- 2. 校验 (与创建时相同) ---
+    if (!name) {
+        return error(400, '商品名称是必填项');
+    }
+    if (!variants || !Array.isArray(variants) || variants.length === 0) {
+        return error(400, '至少需要一个商品规格');
+    }
+    
+    // --- 3. 从第一个规格中提取数据以存入 Products 主表 ---
+    const firstVariant = variants[0];
+    const base_price = parseFloat(firstVariant.price);
+    const stock = parseInt(firstVariant.stock) || 0;
+    const addon_price = parseFloat(firstVariant.addon_price) || 0;
+    const wholesale_config = firstVariant.wholesale_config || '';
+
+    if (isNaN(base_price) || base_price <= 0) {
+        return error(400, '商品名称和有效价格是必填项');
+    }
+    if (!category_id) {
+        return error(400, '所属分类是必填项');
+    }
+    
+    const isActiveInt = is_active ? 1 : 0;
+    let variantsJson = JSON.stringify(variants);
+    
+    // --- 4. D1 数据库更新 (使用 UPDATE) ---
+    try {
+        const stmt = env.MY_HLTX.prepare(
+            `UPDATE Products SET
+                name = ?1,
+                description = ?2,
+                base_price = ?3,
+                image_url = ?4,
+                variants_json = ?5,
+                short_description = ?6,
+                keywords = ?7,
+                category_id = ?8,
+                stock = ?9,
+                wholesale_config = ?10,
+                addon_price = ?11,
+                sort_weight = ?12,
+                is_active = ?13
+            WHERE id = ?14`
+        );
+        
+        await stmt.bind(
+            name,                      // ?1
+            description,               // ?2
+            base_price,                // ?3
+            image_url || '',           // ?4
+            variantsJson,              // ?5
+            short_description || '',   // ?6
+            keywords || '',            // ?7
+            parseInt(category_id),     // ?8
+            stock,                     // ?9
+            wholesale_config,          // ?10
+            addon_price,               // ?11
+            parseInt(sort_weight) || 0,// ?12
+            isActiveInt,               // ?13
+            productId                  // ?14 (WHERE 条件)
+        ).run();
+
+        return json({ id: productId, success: true });
+    } catch (e) {
+        console.error("D1 Update Error:", e);
+        return error(500, '更新商品失败: ' + e.message); 
     }
 });
 
