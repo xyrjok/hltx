@@ -37,6 +37,7 @@
             <div class="admin-card p-3">
                 <h3><i class="fas fa-upload"></i> 导入卡密</h3>
                 <p>请选择要导入的商品规格，并在下方文本框中粘贴卡密，每行一个。支持新格式：<code>卡密信息#[预选信息]#</code></p>
+                
                 <div class="row">
                     <div class="col-md-6">
                         <label for="import-variant-select" class="form-label">选择商品规格</label>
@@ -56,7 +57,7 @@
 示例 (无预选):
 AAKvSsfWGnFdngPf5V61wpeAluX35t1a9Xn35qsEQwp32
 "></textarea>
-                        </div>
+                    </div>
                 </div>
                 
                 <button id="import-cards-btn" class="btn btn-primary mt-3">
@@ -101,6 +102,7 @@ AAKvSsfWGnFdngPf5V61wpeAluX35t1a9Xn35qsEQwp32
 
                 let allVariants = [];
                 for (const product of products) {
+                    // (!!!) 关键修复: 依赖 _worker.js 的修复
                     const productDetail = await adminFetch(`/api/admin/products/${product.id}`);
                     if (productDetail && productDetail.variants && productDetail.variants.length > 0) {
                         productDetail.variants.forEach(variant => {
@@ -155,7 +157,7 @@ AAKvSsfWGnFdngPf5V61wpeAluX35t1a9Xn35qsEQwp32
 
             try {
                 // 后端 /api/admin/cards/import 期待 { variant_id: 123, keys: ["key1", "key2"] }
-                // 我们在 _worker.js 中修改了此API，使其能解析新格式
+                // _worker.js 会负责解析新格式
                 const response = await adminFetch('/api/admin/cards/import', {
                     method: 'POST',
                     body: {
