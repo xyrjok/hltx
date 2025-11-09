@@ -468,7 +468,50 @@ router.post('/api/admin/articles', withAuth, async (request, env) => {
         return error(500, '创建文章失败: ' + e.message);
     }
 });
+// (添加) 获取单篇文章 (用于编辑)
+router.get('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
+    try {
+        const article = await env.MY_HLTX.prepare(
+            "SELECT id, title, slug, summary, content FROM Articles WHERE id = ?1"
+        ).bind(params.id).first();
+        
+        if (!article) return error(404, '文章未找到');
+        return json(article);
+    } catch (e) {
+        return error(500, '获取文章详情失败: ' + e.message);
+    }
+});
 
+// (添加) 更新文章
+router.put('/api/admin/articles/:id', withAuth, async ({ params, request }, env) => {
+    const { title, slug, summary, content } = await request.json();
+    if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
+    
+    try {
+        await env.MY_HLTX.prepare(
+            "UPDATE Articles SET title = ?1, slug = ?2, summary = ?3, content = ?4 WHERE id = ?5"
+        ).bind(title, slug, summary || '', content, params.id).run();
+        
+        return json({ id: params.id, success: true });
+    } catch (e) {
+        return error(500, '更新文章失败: ' + e.message);
+    }
+});
+
+// (添加) 删除文章 (供 articles.html 页面使用)
+router.delete('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
+    try {
+        await env.MY_HLTX.prepare(
+            "DELETE FROM Articles WHERE id = ?1"
+        ).bind(params.id).run();
+        
+        return json({ success: true });
+    } catch (e) {
+        return error(500, '删除文章失败: ' + e.message);
+    }
+});
+
+// --- 结束更新文章 ---
 
 router.get('/api/admin/categories', withAuth, async (request, env) => {
     try {
