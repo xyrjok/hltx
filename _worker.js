@@ -17,6 +17,32 @@ const json = (data, options = {}) => new Response(JSON.stringify(data), {
 // 统一返回错误信息
 const error = (status, message) => json({ success: false, message }, { status });
 
+// START: 新增辅助函数 - 解析卡密和预选信息
+/**
+ * 解析 "卡密信息#[预选信息]#" 格式的字符串
+ * @param {string} fullSecret - 完整卡密字符串
+ * @returns {{secret: string, preset: string|null}}
+ */
+function parseCardSecret(fullSecret) {
+    const regex = /(.*?)#\[(.*?)]#$/;
+    const match = fullSecret.trim().match(regex);
+    
+    // 如果匹配成功 (格式如: "abc#[def]#")
+    if (match && match[1] !== undefined && match[2] !== undefined) {
+        return { 
+            secret: match[1].trim(), // 卡密信息
+            preset: match[2].trim()  // 预选信息
+        };
+    }
+    
+    // 如果不匹配 (格式如: "abc")
+    return { 
+        secret: fullSecret.trim(), 
+        preset: null 
+    };
+}
+// END: 新增辅助函数
+
 // --- 认证中间件 ---
 
 /**
@@ -168,11 +194,13 @@ router.post('/api/orders', async (request, env) => {
         const variant = variantResults[0];
 
         // 2. 检查库存 (查找一个未使用的卡密)
+        // START: 修改 - 同时获取 preset_info 以便前端显示
         const availableCard = await env.MY_HLTX.prepare(`
-            SELECT id, card_key FROM Cards 
+            SELECT id, card_key, preset_info FROM Cards 
             WHERE variant_id = ?1 AND is_used = 0 
             LIMIT 1
         `).bind(variantIdInt).first();
+        // END: 修改
 
         if (!availableCard) {
             return error(400, '库存不足');
@@ -208,6 +236,7 @@ router.post('/api/orders', async (request, env) => {
             total_amount: totalAmount,
             status: 'paid', 
             delivered_card: availableCard.card_key,
+            preset_info: availableCard.preset_info // START: 修改 - 同样返回预选信息
         };
 
         return json(newOrder);
@@ -221,15 +250,25 @@ router.post('/api/orders', async (request, env) => {
 // 获取订单详情
 router.get('/api/orders/:id', async ({ params }, env) => {
     try {
+        // START: 修改 - 同时获取 preset_info
         const order = await env.MY_HLTX.prepare(
-            "SELECT id, status, delivered_card FROM Orders WHERE id = ?1"
+            "SELECT o.id, o.status, o.delivered_card, c.preset_info " +
+            "FROM Orders o " +
+            "LEFT JOIN Cards c ON o.delivered_card = c.card_key AND o.variant_id = c.variant_id " + // 假设 card_key + variant_id 是唯一的
+            "WHERE o.id = ?1"
         ).bind(params.id).first();
+        // END: 修改
 
         if (!order) return error(404, 'Order not found');
+        
+        // 注意: 这种 join 方式不完美, 如果卡密被删除, preset_info 会是 null
+        // 但对于已交付订单是足够的
+        
         return json({
             order_id: order.id,
             status: order.status,
             delivered_card: order.delivered_card,
+            preset_info: order.preset_info // START: 修改 - 返回预选信息
         });
     } catch (e) {
         return error(500, '获取订单详情失败: ' + e.message);
@@ -351,7 +390,6 @@ router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
 });
 
 // --- 新增路由 (1/2): 获取单个商品详情 (后台管理) ---
-// START: 关键修改 - 为新增卡密功能修改
 router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     try {
         const productId = params.id;
@@ -390,7 +428,6 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
         return error(500, '获取商品详情失败: ' + e.message);
     }
 });
-// END: 关键修改
 
 // --- 新增路由 (2/2): 更新商品 (后台管理) ---
 router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
@@ -571,6 +608,7 @@ router.get('/api/admin/orders', withAuth, async (request, env) => {
 // 获取卡密列表 (后台管理)
 router.get('/api/admin/cards', withAuth, async (request, env) => {
     try {
+        // SELECT * 会自动包含新添加的 preset_info 列
         const { results } = await env.MY_HLTX.prepare("SELECT * FROM Cards ORDER BY id DESC").all();
         return json(results);
     } catch (e) {
@@ -578,11 +616,11 @@ router.get('/api/admin/cards', withAuth, async (request, env) => {
     }
 });
 
-// START: 添加新路由 - 新增卡密
+// START: 修改 - 新增卡密路由
 router.post('/api/admin/cards', withAuth, handleAddCard);
-// END: 添加新路由
+// END: 修改
 
-// START: 添加新函数 - 处理新增卡密
+// START: 修改 - handleAddCard 函数
 async function handleAddCard(request, env) {
     try {
         const { variant_id, secret, is_sold } = await request.json();
@@ -591,7 +629,6 @@ async function handleAddCard(request, env) {
             return error(400, '商品规格ID和卡密内容不能为空');
         }
         
-        // 校验 variant_id 是否存在 (遵循 import 路由的逻辑)
         const variant = await env.MY_HLTX.prepare("SELECT id FROM ProductVariants WHERE id = ?1").bind(variant_id).first();
         if (!variant) return error(404, '商品规格 (Variant) 未找到');
 
@@ -606,17 +643,18 @@ async function handleAddCard(request, env) {
         const now = new Date().toISOString();
         
         for (const sec of secrets) {
-            // 遵循 import 路由的 schema (variant_id, card_key)
-            // 并添加 is_used 和 created_at
+            // 使用 parseCardSecret 辅助函数
+            const parsed = parseCardSecret(sec);
+            
+            // 插入到新 schema: (card_key, preset_info)
             stmts.push(
-                db.prepare('INSERT INTO Cards (variant_id, card_key, is_used, created_at) VALUES (?, ?, ?, ?)')
-                  .bind(variant_id, sec.trim(), is_sold || 0, now)
+                db.prepare('INSERT INTO Cards (variant_id, card_key, preset_info, is_used, created_at) VALUES (?, ?, ?, ?, ?)')
+                  .bind(variant_id, parsed.secret, parsed.preset, is_sold || 0, now)
             );
         }
 
         await db.batch(stmts);
         
-        // 遵循 import 路由的逻辑，更新 ProductVariants 的库存
         // 只有当卡密是 "未使用" 时才增加库存
         if ((is_sold || 0) === 0) {
              await env.MY_HLTX.prepare(
@@ -631,11 +669,11 @@ async function handleAddCard(request, env) {
         return error(500, 'Internal Server Error: ' + e.message);
     }
 }
-// END: 添加新函数
+// END: 修改
 
 // 导入新卡密 (后台管理)
 router.post('/api/admin/cards/import', withAuth, async (request, env) => {
-    const { variant_id: variantId, keys } = await request.json();
+    const { variant_id: variantId, keys } = await request.json(); // keys 是一个字符串数组
     const variant_id = parseInt(variantId);
 
     if (!variant_id || !keys || !Array.isArray(keys)) {
@@ -647,11 +685,20 @@ router.post('/api/admin/cards/import', withAuth, async (request, env) => {
         if (!variant) return error(404, 'Variant not found');
 
         let addedCount = 0;
+        
+        // START: 修改 - 准备新的 SQL 语句
         const insertCardStmt = env.MY_HLTX.prepare(
-            "INSERT INTO Cards (variant_id, card_key) VALUES (?1, ?2)"
+            "INSERT INTO Cards (variant_id, card_key, preset_info) VALUES (?1, ?2, ?3)"
         );
         
-        const insertPromises = keys.map(key => insertCardStmt.bind(variant_id, key).run());
+        const insertPromises = keys.map(key => {
+            // 使用 parseCardSecret 辅助函数
+            const parsed = parseCardSecret(key);
+            // 绑定到新 schema
+            return insertCardStmt.bind(variant_id, parsed.secret, parsed.preset).run();
+        });
+        // END: 修改
+        
         const results = await Promise.allSettled(insertPromises);
 
         results.forEach(res => {
