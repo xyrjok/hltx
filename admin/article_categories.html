@@ -122,10 +122,9 @@
                         <td><strong>${cat.name}</strong></td>
                         <td>/${cat.slug}</td>
                         <td class="table-actions">
-                            <button class="btn button-danger button-sm" onclick="deleteCategory(${cat.id})" disabled>
+                            <button class="btn button-danger button-sm" onclick="deleteCategory(${cat.id})">
                                 <i class="fas fa-trash"></i> 删除
                             </button>
-                            <small class="text-muted">(删除功能待添加)</small>
                         </td>
                     `;
                     categoryListBodyEl.appendChild(row);
@@ -172,18 +171,16 @@
                 saveButton.innerHTML = '<i class="fas fa-save"></i> 添加新分类';
             }
         }
-        
-        // 3. (占位符) 删除分类
-        // 您在 _worker.js 中尚未添加 DELETE 路由，因此此功能暂不可用
+        // 3. 删除分类
         async function deleteCategory(id) {
-            alert(`删除 ID ${id} 的功能尚未在 _worker.js 中实现。`);
-            // if (!confirm(`确定要删除 ID 为 ${id} 的分类吗？`)) return;
-            // try {
-            //     await adminFetch(`/api/admin/article_categories/${id}`, { method: 'DELETE' });
-            //     await loadCategories();
-            // } catch (error) {
-            //     alert(`删除失败: ${error.message}`);
-            // }
+           if (!confirm(`确定要删除 ID 为 ${id} 的分类吗？`)) return;          
+           try {
+               await adminFetch(`/api/admin/article_categories/${id}`, { method: 'DELETE' });
+               showMessage('删除成功！', 'success');
+               await loadCategories(); 
+           } catch (error) {
+               showMessage(`删除失败: ${error.message}`, 'danger');
+           }
         }
 
         // 4. 显示消息
