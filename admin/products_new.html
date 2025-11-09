@@ -17,7 +17,7 @@
             align-items: center;
         }
     </style>
-    </head>
+</head>
 <body>
     <div class="admin-layout">
         <nav class="sidebar">
@@ -80,7 +80,7 @@
                                 <i class="fas fa-plus"></i> 添加新规格
                             </button>
                         </div>
-                        </div>
+                    </div>
 
                     <div class="col-lg-4">
                         <div class="admin-card p-3 mb-4">
@@ -148,8 +148,8 @@
                     </div>
                     <div class="col-lg-2">
                         <label class="form-label d-lg-none">批发价配置 (仅第一个有效)</label>
-                        <textarea class="form-control variant-wholesale-config" rows="1" placeholder="批发价JSON"></textarea>
-                    </div>
+                        <textarea class="form-control variant-wholesale-config" rows="1" placeholder="例如: 5=3,10=2,50=1"></textarea>
+                        </div>
                     <div class="col-lg-1">
                         <label class="form-label d-lg-none">库存</label>
                         <input type="number" class="form-control variant-stock" placeholder="库存" readonly>
@@ -172,11 +172,14 @@
             </div>
         </div>
     </template>
+    
     <script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/static/tinymce/tinymce.min.js"></script>
     <script src="/admin/auth.js"></script>
     <script src="/admin/admin.js"></script> 
     <script>
+        // (*** 下方的 JavaScript 和我们上次的一样，无需改动 ***)
+        
         const variantsContainer = document.getElementById('variants-container');
         const addVariantBtn = document.getElementById('add-variant-btn');
         const productForm = document.getElementById('product-form');
@@ -186,7 +189,6 @@
         
         let existingProductId = null;
 
-        // 初始化 TinyMCE 编辑器
         tinymce.init({
             selector: '#description',
             plugins: 'lists link image media codesample wordcount',
@@ -202,22 +204,18 @@
             const clone = template.content.cloneNode(true);
             const variantCard = clone.querySelector('.variant-card');
 
-            // (!!!) 关键: 存储 variant.id (用于编辑和同步)
             if (variant.id) {
                 variantCard.dataset.id = variant.id;
             }
             
-            // 填充数据 (START: 适配新布局和新字段)
             variantCard.querySelector('.variant-name').value = variant.name || '';
-            variantCard.querySelector('.variant-color-code').value = variant.color_code || ''; // 新增
+            variantCard.querySelector('.variant-color-code').value = variant.color_code || '';
             variantCard.querySelector('.variant-price').value = variant.price || variant.base_price || '';
             variantCard.querySelector('.variant-addon-price').value = variant.addon_price || '';
             variantCard.querySelector('.variant-stock').value = variant.stock_count || variant.stock || 0;
-            variantCard.querySelector('.variant-sales').value = variant.sales || 0; // 新增
+            variantCard.querySelector('.variant-sales').value = variant.sales || 0;
             variantCard.querySelector('.variant-wholesale-config').value = variant.wholesale_config || '';
-            // (END: 适配)
 
-            // 绑定删除按钮
             variantCard.querySelector('.remove-variant-btn').addEventListener('click', () => {
                 if (variantsContainer.querySelectorAll('.variant-card').length > 1) {
                     variantCard.remove();
@@ -254,7 +252,6 @@
         async function loadProductData(id) {
             pageTitle.textContent = `编辑商品 (ID: ${id})`;
             try {
-                // (这依赖 _worker.js 中 GET /api/admin/products/:id 的正确实现)
                 const product = await adminFetch('/api/admin/products/' + id);
                 populateForm(product);
             } catch (error) {
@@ -273,14 +270,11 @@
             document.getElementById('short_description').value = product.short_description;
             document.getElementById('keywords').value = product.keywords;
 
-            // 填充规格
-            variantsContainer.innerHTML = ''; // 清空
-            // (!!!) 关键: product.variants 现在来自 `variants_json` (通过 _worker.js)
-            // 或者是从 ProductVariants 表读取的数据 (通过 _worker.js)
+            variantsContainer.innerHTML = ''; 
             if (product.variants && product.variants.length > 0) {
                 product.variants.forEach(variant => addVariantCard(variant));
             } else {
-                addVariantCard(); // 添加一个空卡片
+                addVariantCard();
             }
         }
 
@@ -298,21 +292,18 @@
                     isValid = false;
                 }
                 
-                // (!!!) 关键: 收集 variant.id (用于编辑)
                 const variantId = variantCard.dataset.id ? parseInt(variantCard.dataset.id, 10) : undefined;
 
-                // (START: 适配新布局和新字段)
                 variants.push({
-                    id: variantId, // (!!!) 关键
+                    id: variantId, 
                     name: name,
-                    color_code: variantCard.querySelector('.variant-color-code').value || '', // 新增
+                    color_code: variantCard.querySelector('.variant-color-code').value || '',
                     price: price,
                     addon_price: variantCard.querySelector('.variant-addon-price').value || 0,
                     stock: variantCard.querySelector('.variant-stock').value || 0,
-                    sales: variantCard.querySelector('.variant-sales').value || 0, // 新增
+                    sales: variantCard.querySelector('.variant-sales').value || 0,
                     wholesale_config: variantCard.querySelector('.variant-wholesale-config').value || ''
                 });
-                // (END: 适配)
             });
 
             if (!isValid) {
@@ -343,13 +334,8 @@
                     is_active: document.getElementById('is_active').checked,
                     short_description: document.getElementById('short_description').value,
                     keywords: document.getElementById('keywords').value,
-                    variants: variants // (!!!) 包含所有字段 (如 color_code) 的数组
+                    variants: variants 
                 };
-
-                // (后端 _worker.js 会处理这个 `productData`)
-                // (1. 它会把 `productData.variants` 整个保存到 `Products.variants_json`)
-                // (2. 它会 *同时* 把 `name/price/stock` 同步到 `ProductVariants` 表)
-                // (这就是我们修复 data-sync bug 的方式)
 
                 let response;
                 let method = existingProductId ? 'PUT' : 'POST';
@@ -368,7 +354,6 @@
                     if (!existingProductId) {
                         window.location.search = `?id=${result.id}`;
                     } else {
-                        // (编辑模式) 重新加载数据，以显示同步后的库存和ID
                         loadProductData(existingProductId);
                     }
                 } else {
@@ -400,11 +385,9 @@
             existingProductId = urlParams.get('id');
 
             if (existingProductId) {
-                // 编辑模式
                 loadProductData(existingProductId);
             } else {
-                // 新建模式
-                addVariantCard(); // 默认添加一个空规格卡片
+                addVariantCard();
             }
 
             addVariantBtn.addEventListener('click', () => addVariantCard());
