@@ -80,6 +80,17 @@
                                 <textarea id="summary" class="form-control" rows="4"></textarea>
                                 <small class="form-text text-muted">（可选）显示在文章列表中的简短描述</small>
                             </div>
+							<div class="mb-3">
+                                <label for="image_url" class="form-label">封面图片 <i class="fas fa-image"></i></label>
+                                <input type="text" id="image_url" class="form-control" placeholder="输入图片链接 (URL)">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="category_id" class="form-label">文章分类 <i class="fas fa-folder"></i></label>
+                                <select id="category_id" class="form-select">
+                                    <option value="">— N/A (无分类) —</option>
+                                    </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -104,6 +115,8 @@
         const titleEl = document.getElementById('title');
         const slugEl = document.getElementById('slug');
         const summaryEl = document.getElementById('summary');
+		const image_urlEl = document.getElementById('image_url'); 
+        const categoryEl = document.getElementById('category_id');
         const saveButton = document.getElementById('save-button');
         const messageEl = document.getElementById('form-message');
 
@@ -116,9 +129,28 @@
             toolbar: 'undo redo | bold italic underline strikethrough | fontfamily fontsize blocks | alignleft aligncenter alignright alignjustify | outdent indent |  numlist bullist | forecolor backcolor removeformat | pagebreak | charmap emoticons | fullscreen  preview save print | insertfile image media template link anchor codesample | ltr rtl',
             height: 500
         });
+		// 2. 加载分类 (用于下拉框)
+        async function loadCategories() {
+            try {
+                // 这个 API 路由在您的 _worker.js 中已经存在
+                const categories = await adminFetch('/api/admin/categories'); 
+                
+                categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.id;
+                    option.textContent = cat.name;
+                    categoryEl.appendChild(option);
+                });
+            } catch (error) {
+                // 即使分类加载失败，也不阻止表单工作
+                console.error("加载分类失败:", error.message);
+            }
+        }
+        // --- 添加到这里结束 ---
 
         // 2. 加载数据 (如果是编辑模式)
         async function loadArticleData() {
+			await loadCategories();
             if (!isEditing) {
                 document.getElementById('page-title').textContent = '新建文章';
                 document.title = '新建文章 - CloudCard';
@@ -136,6 +168,8 @@
                 titleEl.value = data.title;
                 slugEl.value = data.slug;
                 summaryEl.value = data.summary;
+				image_urlEl.value = data.image_url || ''; 
+                categoryEl.value = data.category_id ||
                 
                 // 等待 TinyMCE 初始化完成再设置内容
                 tinymce.get('content').on('init', () => {
@@ -164,6 +198,8 @@
                 title: titleEl.value,
                 slug: slugEl.value,
                 summary: summaryEl.value,
+				image_url: image_urlEl.value || '', 
+                category_id: categoryEl.value ? parseInt(categoryEl.value) : null, 
                 content: content
             };
 
