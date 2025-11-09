@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>导入/导出卡密 - CloudCard</title>
-    
-	<link rel="stylesheet" href="/static/bootstrap.min.css"/>
-	<link rel="stylesheet" href="/static/all.min.css"/>
+    <link rel="stylesheet" href="/static/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/static/all.min.css"/>
     <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
@@ -34,190 +33,164 @@
         
         <main class="main-content">
             <h1>导入/导出卡密 <small class="text-muted fs-5">(批量管理卡密)</small></h1>
-            <p>通过文件批量导入新的卡密或导出已有的卡密和库存信息。</p>
 
-            <div class="row">
-                <div class="col-lg-6">
-                    <div class="admin-card p-4">
-                        <h3><i class="fas fa-file-import"></i> 批量导入卡密</h3>
-                        <form id="import-form">
-                            <div class="form-group">
-                                <label for="product-select">选择关联商品/规格</label>
-                                <select id="product-select" class="form-select" required>
-                                    <option value="">-- 请选择一个商品规格 --</option>
-                                    <option value="1">商品A (规格1)</option>
-                                    <option value="2">商品B (规格2)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="card-file">选择卡密文件 (.txt / .csv)</label>
-                                <input type="file" id="card-file" class="form-control" accept=".txt, .csv" required>
-                                <small class="text-muted">每行一个卡密。</small>
-                            </div>
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" value="" id="clear-existing">
-                                <label class="form-check-label" for="clear-existing">
-                                    导入前清空该规格现有卡密
-                                </label>
-                            </div>
-                            
-                            <button type="submit" class="button">
-                                <i class="fas fa-upload"></i> 开始导入
-                            </button>
-                            <p id="import-message" class="mt-3" style="display: none;"></p>
-                        </form>
+            <div class="admin-card p-3">
+                <h3><i class="fas fa-upload"></i> 导入卡密</h3>
+                <p>请选择要导入的商品规格，并在下方文本框中粘贴卡密，每行一个。支持新格式：<code>卡密信息#[预选信息]#</code></p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="import-variant-select" class="form-label">选择商品规格</label>
+                        <select id="import-variant-select" class="form-select">
+                            <option value="">正在加载商品...</option>
+                        </select>
                     </div>
                 </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <label for="card-keys-textarea" class="form-label">卡密列表 (每行一个)</label>
+                        <textarea id="card-keys-textarea" class="form-control" rows="10" placeholder="在此处粘贴卡密，每行一个。
+示例 (有预选):
+大区:神境之地----账号:admin----密码:123456#[大区:神境之地----等级:100]#
 
-                <div class="col-lg-6">
-                    <div class="admin-card p-4">
-                        <h3><i class="fas fa-file-export"></i> 批量导出卡密</h3>
-                        <form id="export-form">
-                            <div class="form-group">
-                                <label for="export-product-select">选择导出范围</label>
-                                <select id="export-product-select" class="form-select">
-                                    <option value="all">所有卡密 (所有规格)</option>
-                                    <option value="1">仅导出 商品A (规格1)</option>
-                                    <option value="2">仅导出 商品B (规格2)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="export-status">选择状态</label>
-                                <select id="export-status" class="form-select">
-                                    <option value="">所有状态</option>
-                                    <option value="0">未使用的卡密</option>
-                                    <option value="1">已使用的卡密</option>
-                                </select>
-                            </div>
-                            
-                            <button type="submit" class="button button-info">
-                                <i class="fas fa-download"></i> 生成并下载文件
-                            </button>
-                            <p id="export-message" class="mt-3" style="display: none;"></p>
-                        </form>
-                    </div>
+示例 (无预选):
+AAKvSsfWGnFdngPf5V61wpeAluX35t1a9Xn35qsEQwp32
+"></textarea>
+                        </div>
                 </div>
+                
+                <button id="import-cards-btn" class="btn btn-primary mt-3">
+                    <i class="fas fa-check"></i> 开始导入
+                </button>
+
+                <div id="import-result" class="mt-3" style="display: none;"></div>
+            </div>
+            
+            <div class="admin-card p-3 mt-4">
+                <h3><i class="fas fa-download"></i> 导出卡密</h3>
+                <p>选择条件以导出卡密数据为 CSV 文件。</p>
+                <button class="btn btn-secondary" onclick="alert('导出功能尚未实现')">
+                    <i class="fas fa-file-csv"></i> 导出所有卡密
+                </button>
             </div>
         </main>
     </div>
     
-	<script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/admin/auth.js"></script>
-    <script src="/admin/admin.js"></script>
+    <script src="/admin/admin.js"></script> 
     <script>
-        // 退出登录逻辑已在 utils.js 中初始化
+        // (*** 此处的 JavaScript 脚本内容无需任何修改 ***)
 
-        const importForm = document.getElementById('import-form');
-        const importMessage = document.getElementById('import-message');
-        const exportForm = document.getElementById('export-form');
-        const exportMessage = document.getElementById('export-message');
+        // 此页面的JS逻辑
+        const importSelectEl = document.getElementById('import-variant-select');
+        const importTextareaEl = document.getElementById('card-keys-textarea');
+        const importBtn = document.getElementById('import-cards-btn');
+        const importResultEl = document.getElementById('import-result');
 
-        // 1. 处理卡密导入
-        importForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            importMessage.style.display = 'none';
+        // 1. 加载商品规格到下拉菜单
+        async function loadVariantsForImport() {
+            importSelectEl.innerHTML = '<option value="">正在加载商品...</option>';
+            try {
+                // (这是一个N+1查询，和 cards_list 页面一样)
+                const products = await adminFetch('/api/admin/products');
+                if (!products || products.length === 0) {
+                    importSelectEl.innerHTML = '<option value="">未找到商品</option>';
+                    return;
+                }
 
-            const productId = document.getElementById('product-select').value;
-            const cardFile = document.getElementById('card-file').files[0];
-            const clearExisting = document.getElementById('clear-existing').checked;
+                let allVariants = [];
+                for (const product of products) {
+                    const productDetail = await adminFetch(`/api/admin/products/${product.id}`);
+                    if (productDetail && productDetail.variants && productDetail.variants.length > 0) {
+                        productDetail.variants.forEach(variant => {
+                            if (variant.id) { // 必须有 variant.id
+                                allVariants.push({
+                                    id: variant.id, 
+                                    name: `${product.name} - ${variant.name}`
+                                });
+                            }
+                        });
+                    }
+                }
+                
+                importSelectEl.innerHTML = '<option value="">请选择一个商品规格</option>';
+                allVariants.forEach(variant => {
+                    const option = document.createElement('option');
+                    option.value = variant.id;
+                    option.textContent = variant.name;
+                    importSelectEl.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading variants:', error);
+                importSelectEl.innerHTML = '<option value="">加载失败</option>';
+            }
+        }
 
-            if (!productId) {
-                importMessage.textContent = '请选择一个关联的商品规格。';
-                importMessage.className = 'mt-3 text-danger';
-                importMessage.style.display = 'block';
+        // 2. 处理导入按钮点击
+        async function handleImportCards() {
+            const variantId = importSelectEl.value;
+            const keysString = importTextareaEl.value.trim();
+            
+            if (!variantId) {
+                alert('请选择一个商品规格！');
+                return;
+            }
+            if (!keysString) {
+                alert('请粘贴要导入的卡密！');
                 return;
             }
 
-            if (!cardFile) {
-                importMessage.textContent = '请选择要导入的卡密文件。';
-                importMessage.className = 'mt-3 text-danger';
-                importMessage.style.display = 'block';
+            const keys = keysString.split('\n').filter(k => k.trim().length > 0);
+            
+            if (keys.length === 0) {
+                alert('未找到有效的卡密行。');
                 return;
             }
 
-            // 实际操作中，你需要使用 FormData 来发送文件到后端
-            const formData = new FormData();
-            formData.append('file', cardFile);
-            formData.append('variant_id', productId);
-            formData.append('clear_existing', clearExisting);
+            importBtn.disabled = true;
+            importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在导入...';
+            importResultEl.style.display = 'none';
+            importResultEl.className = 'mt-3';
 
             try {
-                // 使用 adminFetch 替换 fetch，但注意文件上传需要特殊 headers
+                // 后端 /api/admin/cards/import 期待 { variant_id: 123, keys: ["key1", "key2"] }
+                // 我们在 _worker.js 中修改了此API，使其能解析新格式
                 const response = await adminFetch('/api/admin/cards/import', {
                     method: 'POST',
-                    // 注意：当使用 FormData 时，浏览器会自动设置 Content-Type: multipart/form-data
-                    // 所以我们不应该手动设置 'Content-Type': 'application/json'
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': undefined // 允许浏览器自动设置
-                    },
-                    body: formData
+                    body: {
+                        variant_id: parseInt(variantId),
+                        keys: keys // keys 是一个字符串数组 (包含新格式的字符串)
+                    }
                 });
-                
-                // 由于后端返回的可能是纯文本或状态码，这里简化处理
-                // const result = await response.json(); 
 
-                importForm.reset();
-                importMessage.textContent = '卡密文件上传成功，等待后台处理 (模拟)!';
-                importMessage.className = 'mt-3 text-success';
-                importMessage.style.display = 'block';
-                
-            } catch (error) {
-                importMessage.textContent = '导入失败: ' + error.message;
-                importMessage.className = 'mt-3 text-danger';
-                importMessage.style.display = 'block';
-            }
-        });
-        
-        // 2. 处理卡密导出
-        exportForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            exportMessage.style.display = 'none';
-
-            const exportProductId = document.getElementById('export-product-select').value;
-            const exportStatus = document.getElementById('export-status').value;
-            
-            // 构造 API 参数
-            const params = new URLSearchParams();
-            if (exportProductId !== 'all') {
-                params.append('variant_id', exportProductId);
-            }
-            if (exportStatus !== '') {
-                params.append('status', exportStatus);
-            }
-
-            try {
-                // 实际项目中，导出 API 应该返回一个文件流
-                const url = '/api/admin/cards/export?' + params.toString();
-                
-                // 仅模拟行为，实际需要处理文件下载
-                exportMessage.textContent = `开始导出卡密... (导出 API: ${url})`;
-                exportMessage.className = 'mt-3 text-info';
-                exportMessage.style.display = 'block';
-                
-                // 实际代码示例 (如果 API 支持文件流)：
-                /*
-                const response = await adminFetch(url);
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = downloadUrl;
-                a.download = `cards_export_${new Date().toISOString()}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(downloadUrl);
-                exportMessage.textContent = '卡密文件已开始下载！';
-                exportMessage.className = 'mt-3 text-success';
-                */
+                if (response.ok) {
+                    const result = await response.json();
+                    importResultEl.className = 'mt-3 alert alert-success';
+                    importResultEl.textContent = `导入成功！总共 ${keys.length} 行，成功添加 ${result.added_count} 张卡密。`;
+                    importResultEl.style.display = 'block';
+                    importTextareaEl.value = ''; // 清空
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || '导入失败');
+                }
 
             } catch (error) {
-                exportMessage.textContent = '导出失败: ' + error.message;
-                exportMessage.className = 'mt-3 text-danger';
-                exportMessage.style.display = 'block';
+                console.error('Import error:', error);
+                importResultEl.className = 'mt-3 alert alert-danger';
+                importResultEl.textContent = `导入失败: ${error.message}`;
+                importResultEl.style.display = 'block';
+            } finally {
+                importBtn.disabled = false;
+                importBtn.innerHTML = '<i class="fas fa-check"></i> 开始导入';
             }
+        }
+
+        // 页面加载时
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVariantsForImport();
+            importBtn.addEventListener('click', handleImportCards);
         });
-        
     </script>
 </body>
 </html>
