@@ -60,8 +60,7 @@
 
                         <div class="admin-card p-3 mb-4">
                             <h4>商品规格</h4>
-                            <p>您可以在此为商品添加多种规格。<b>注意：</b>自选加价和批发价配置**仅对第一个规格**生效。</p>
-                            
+                            <p>您可以在此为商品添加多种规格。每个规格都可以设置独立的批发价和自选加价。</p>
                             <div class="row g-2 d-none d-lg-flex mb-2">
                                 <div class="col-md-2"><label class="form-label">规格名称</label></div>
                                 <div class="col-md-2"><label class="form-label">字体颜色</label></div>
@@ -147,17 +146,17 @@
                         <input type="number" class="form-control variant-price" placeholder="售价" step="0.01" required>
                     </div>
                     <div class="col-lg-2">
-                        <label class="form-label d-lg-none">批发价配置 (仅第一个有效)</label>
-                        <textarea class="form-control variant-wholesale-config" rows="1" placeholder="例如: 5=3,10=2,50=1"></textarea>
+                        <label class="form-label d-lg-none">批发价配置</label>
+                        <textarea class="form-control variant-wholesale-config" rows="1" placeholder="例如: 5=3,10=2"></textarea>
                         </div>
                     <div class="col-lg-1">
                         <label class="form-label d-lg-none">库存</label>
                         <input type="number" class="form-control variant-stock" placeholder="库存" readonly>
                     </div>
                     <div class="col-lg-2">
-                        <label class="form-label d-lg-none">自选加价 (仅第一个有效)</label>
+                        <label class="form-label d-lg-none">自选加价</label>
                         <input type="number" class="form-control variant-addon-price" placeholder="自选加价" step="0.01">
-                    </div>
+                        </div>
                     <div class="col-lg-1">
                         <label class="form-label d-lg-none">销量</label>
                         <input type="number" class="form-control variant-sales" placeholder="销量" readonly>
@@ -300,7 +299,7 @@
                     color_code: variantCard.querySelector('.variant-color-code').value || '',
                     price: price,
                     addon_price: variantCard.querySelector('.variant-addon-price').value || 0,
-                    stock: variantCard.querySelector('.variant-stock').value || 0,
+                    stock: variantCard.querySelector('.variant-stock').value || 0, // (这个 stock 字段是冗余的)
                     sales: variantCard.querySelector('.variant-sales').value || 0,
                     wholesale_config: variantCard.querySelector('.variant-wholesale-config').value || ''
                 });
@@ -354,6 +353,7 @@
                     if (!existingProductId) {
                         window.location.search = `?id=${result.id}`;
                     } else {
+                        // (编辑模式) 重新加载数据，以显示同步后的库存和ID
                         loadProductData(existingProductId);
                     }
                 } else {
