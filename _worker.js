@@ -450,7 +450,7 @@ router.get('/api/admin/articles', withAuth, async (request, env) => {
         const { results } = await env.MY_HLTX.prepare(
             `SELECT a.id, a.title, a.slug, a.image_url, a.created_at, c.name as category_name 
              FROM Articles a 
-             LEFT JOIN Categories c ON a.category_id = c.id 
+             LEFT JOIN ArticleCategories c ON a.article_category_id = c.id 
              ORDER BY a.created_at DESC`
         ).all();
         return json(results);
@@ -461,12 +461,12 @@ router.get('/api/admin/articles', withAuth, async (request, env) => {
 
 
 router.post('/api/admin/articles', withAuth, async (request, env) => {
-    const { title, slug, summary, content, image_url, category_id } = await request.json(); 
+    const { title, slug, summary, content, image_url, article_category_id } = await request.json();
     if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
     try {
         await env.MY_HLTX.prepare(
-            "INSERT INTO Articles (title, slug, summary, content, image_url, category_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)" 
-        ).bind(title, slug, summary || '', content, image_url || '', category_id ? parseInt(category_id) : null).run(); 
+            "INSERT INTO Articles (title, slug, summary, content, image_url, article_category_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+        ).bind(title, slug, summary || '', content, image_url || '', article_category_id ? parseInt(article_category_id) : null).run();
         const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
         return json({ id: result.id, success: true }, { status: 201 });
     } catch (e) {
@@ -477,7 +477,7 @@ router.post('/api/admin/articles', withAuth, async (request, env) => {
 router.get('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
     try {
         const article = await env.MY_HLTX.prepare(
-            "SELECT id, title, slug, summary, content, image_url, category_id FROM Articles WHERE id = ?1" 
+            "SELECT id, title, slug, summary, content, image_url, article_category_id FROM Articles WHERE id = ?1"
         ).bind(params.id).first();
         
         if (!article) return error(404, '文章未找到');
@@ -489,13 +489,13 @@ router.get('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
 
 // (添加) 更新文章
 router.put('/api/admin/articles/:id', withAuth, async ({ params, request }, env) => {
-    const { title, slug, summary, content, image_url, category_id } = await request.json(); 
+    const { title, slug, summary, content, image_url, article_category_id } = await request.json();
     if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
     
     try {
         await env.MY_HLTX.prepare(
-            "UPDATE Articles SET title = ?1, slug = ?2, summary = ?3, content = ?4, image_url = ?5, category_id = ?6 WHERE id = ?7" 
-        ).bind(title, slug, summary || '', content, image_url || '', category_id ? parseInt(category_id) : null, params.id).run(); 
+            "UPDATE Articles SET title = ?1, slug = ?2, summary = ?3, content = ?4, image_url = ?5, article_category_id = ?6 WHERE id = ?7"
+        ).bind(title, slug, summary || '', content, image_url || '', article_category_id ? parseInt(article_category_id) : null, params.id).run();
         
         return json({ id: params.id, success: true });
     } catch (e) {
@@ -541,7 +541,32 @@ router.post('/api/admin/categories', withAuth, async (request, env) => {
         return error(500, '创建分类失败: ' + e.message);
     }
 });
+// --- 从这里开始添加 (文章分类 API) ---
 
+router.get('/api/admin/article_categories', withAuth, async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare("SELECT * FROM ArticleCategories").all();
+        return json(results);
+    } catch (e) {
+        return error(500, '获取文章分类失败: ' + e.message);
+    }
+});
+
+router.post('/api/admin/article_categories', withAuth, async (request, env) => {
+    const { name, slug } = await request.json();
+    if (!name || !slug) return error(400, '名称和Slug是必填项');
+    try {
+        await env.MY_HLTX.prepare(
+            "INSERT INTO ArticleCategories (name, slug) VALUES (?1, ?2)"
+        ).bind(name, slug).run();
+        const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
+        return json({ id: result.id, success: true }, { status: 201 });
+    } catch (e) {
+        return error(500, '创建文章分类失败: ' + e.message);
+    }
+});
+
+// --- 添加 (文章分类 API)到这里结束 ---
 
 router.get('/api/admin/orders', withAuth, async (request, env) => {
     try {
