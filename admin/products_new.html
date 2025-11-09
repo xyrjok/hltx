@@ -4,24 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新建商品 - CloudCard</title>
-    
-	<link rel="stylesheet" href="/static/bootstrap.min.css"/>
-	<link rel="stylesheet" href="/static/all.min.css"/>
+    <link rel="stylesheet" href="/static/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/static/all.min.css"/>
     <link rel="stylesheet" href="/admin/admin.css">
-    <style>
-        /* 确保表格内的输入框紧凑 */
-        #variants-table input {
-            padding: 0.3rem 0.5rem;
-            height: 30px;
-        }
-        /* 调整表格内textarea的样式 */
-        #variants-container textarea {
-            font-size: 0.75rem; /* 确保内容能在一小块区域内显示 */
-            height: 50px;
-            padding: 0.2rem;
-            resize: vertical;
-        }
-    </style>
 </head>
 <body>
     <div class="admin-layout">
@@ -47,403 +32,346 @@
         </nav>
         
         <main class="main-content">
-            <h1 id="page-title">新建商品 <small class="text-muted fs-5">(创建商品基础信息)</small></h1>
-            <p>创建一个新的商品，完成后请前往“商品列表”管理规格、价格和库存。</p>
+            <h1 id="page-title">新建商品</h1>
 
-            <div class="admin-card p-4">
-			<form id="add-product-form">
-			    <div class="form-group">
-			        <label for="prod-name">1. 商品名称</label>
-			        <input type="text" id="prod-name" class="form-control" required>
-			    </div>
-			
-			    <div class="form-group">
-			        <label for="prod-short-desc">2. 商品简介/描述 (在前端列表显示)</label>
-			        <textarea id="prod-short-desc" rows="3" class="form-control"></textarea>
-			    </div>
-			
-			    <div class="form-group">
-			        <label for="prod-keywords">3. 商品关键字 (多个用逗号分隔)</label>
-			        <input type="text" id="prod-keywords" class="form-control">
-			    </div>
-			
-			    <div class="form-group">
-			        <label for="prod-category">4. 所属分类</label>
-			        <select id="prod-category" class="form-control" required>
-			            <option value="">请选择分类</option>
-			            </select>
-			    </div>
-			
-			    <div class="form-group">
-			        <label for="prod-image">5. 商品图片 URL (可选)</label>
-			        <input type="text" id="prod-image" class="form-control">
-			    </div>
-			
-			    <hr class="my-4">
-			    <h4>6. 商品规格配置 (多规格)</h4>
-			    <p class="text-muted fs-6">每一行代表一个规格，并设置其价格和独立的批发价配置。如果仅需单规格商品，请保留一行并留空“规格名称”。</p>
+            <form id="product-form">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="admin-card p-3 mb-4">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">商品名称</label>
+                                <input type="text" class="form-control" id="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">商品描述</label>
+                                <textarea class="form-control" id="description" rows="10"></textarea>
+                            </div>
+                        </div>
 
-                <div class="mt-3">
-			        <label>规格列表</label>
-			        <table class="table table-bordered table-sm">
-			            <thead>
-			                <tr>
-			                    <th style="width: 15%;">规格名称</th>
-                                <th style="width: 10%;">规格字体颜色代码</th>
-			                    <th style="width: 10%;">售价 (元)</th>
-                                <th style="width: 25%;">批发价配置</th>
-			                    <th style="width: 10%;">库存 (数量)</th>
-			                    <th style="width: 10%;">自选加价 (元)</th>
-                                <th style="width: 5%;">销量</th>
-			                    <th style="width: 15%;">操作</th>
-			                </tr>
-			            </thead>
-			            <tbody id="variants-container">
-			                </tbody>
-			        </table>
-			        <button type="button" class="btn btn-sm btn-outline-primary" id="add-variant-btn">
-			            <i class="fas fa-plus-circle"></i> + 新增规格
-			        </button>
-			        <small class="form-text text-muted d-block mt-2">批发价配置格式：一行一个，例: 5=3。</small>
+                        <div class="admin-card p-3 mb-4">
+                            <h4>商品规格</h4>
+                            <p>您可以在此为商品添加多种规格（例如：标准版、豪华版）。价格和库存在此设置。</p>
+                            <div id="variants-container">
+                                </div>
+                            <button type="button" class="btn btn-secondary mt-3" id="add-variant-btn">
+                                <i class="fas fa-plus"></i> 添加新规格
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="admin-card p-3 mb-4">
+                            <h4><i class="fas fa-cogs"></i> 商品配置</h4>
+                            <div class="mb-3">
+                                <label for="category-id" class="form-label">所属分类</label>
+                                <select class="form-select" id="category-id" required>
+                                    <option value="">请选择分类...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="image_url" class="form-label">商品图片 URL</label>
+                                <input type="text" class="form-control" id="image_url" placeholder="https://example.com/image.png">
+                            </div>
+                            <div class="mb-3">
+                                <label for="sort_weight" class="form-label">排序权重</label>
+                                <input type="number" class="form-control" id="sort_weight" value="0">
+                                <small class="form-text">数字越大，排序越靠前。</small>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="is_active" checked>
+                                <label class="form-check-label" for="is_active">立即上架</label>
+                            </div>
+                        </div>
+
+                        <div class="admin-card p-3 mb-4">
+                            <h4><i class="fas fa-tags"></i> SEO 信息</h4>
+                            <div class="mb-3">
+                                <label for="short_description" class="form-label">简短描述</label>
+                                <textarea class="form-control" id="short_description" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="keywords" class="form-label">关键词 (逗号分隔)</label>
+                                <input type="text" class="form-control" id="keywords">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-			    <hr class="my-4">
-			
-			    <div class="form-group">
-			        <label for="prod-desc">7. 商品详细描述 (TinyMCE 编辑器)</label>
-			        <textarea id="prod-desc" class="form-control"></textarea>
-			    </div>
-			
-			    <div class="row">
-			        <div class="col-md-6">
-			            <div class="form-group">
-			                <label for="prod-sort-weight">9. 排序权重</label>
-			                <input type="number" id="prod-sort-weight" class="form-control" value="0">
-			                <small class="form-text text-muted">数值越大，排名越靠前。</small>
-			            </div>
-			        </div>
-			        <div class="col-md-6">
-			            <div class="form-group mt-4">
-			                <div class="form-check">
-			                    <input class="form-check-input" type="checkbox" id="prod-is-active" checked>
-			                    <label class="form-check-label" for="prod-is-active">
-			                        10. 是否上架
-			                    </label>
-			                </div>
-			            </div>
-			        </div>
-			    </div>
-			    
-                <button type="submit" class="button mt-3" id="submit-button">
-			        <i class="fas fa-plus-circle"></i> 创建商品
-			    </button>
-			    <p id="form-message" class="mt-3" style="display: none;"></p>
-			</form>
-            </div>
+                <div class="admin-toolbar-sticky">
+                    <button type="submit" class="btn btn-primary" id="save-product-btn">
+                        <i class="fas fa-save"></i> 保存商品
+                    </button>
+                    <div id="form-message" class="mt-2" style="display: none;"></div>
+                </div>
+            </form>
         </main>
     </div>
+
+    <template id="variant-card-template">
+        <div class="card variant-card mb-3">
+            <div class="card-body">
+                <h5 class="card-title d-flex justify-content-between">
+                    规格
+                    <button type="button" class="btn-close remove-variant-btn" aria-label="Close"></button>
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">规格名称</label>
+                        <input type="text" class="form-control variant-name" placeholder="例如：标准版" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">价格 (售价)</label>
+                        <input type="number" class="form-control variant-price" placeholder="10.00" step="0.01" required>
+                    </div>
+                </div>
+                <div class="row">
+                     <div class="col-md-6 mb-3">
+                        <label class="form-label">附加价格 (仅第一个规格有效)</label>
+                        <input type="number" class="form-control variant-addon-price" placeholder="0.00" step="0.01">
+                        <small>用于预选信息的加价。</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">库存</label>
+                        <input type="number" class="form-control variant-stock" placeholder="0" readonly>
+                        <small>库存由卡密自动计算，此处无需填写。</small>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">批发配置 (JSON, 仅第一个规格有效)</label>
+                    <textarea class="form-control variant-wholesale-config" rows="2" placeholder='[{"count": 10, "discount": 0.8}]'></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
     
-	<script src="/static/bootstrap.bundle.min.js"></script>
-	<script src="/static/tinymce/tinymce.min.js"></script>
-	<script src="/admin/auth.js"></script>
-	<script src="/admin/admin.js"></script>
-	<script>
-        // --- 1. 全局变量 ---
+    <script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/static/tinymce/tinymce.min.js"></script>
+    <script src="/admin/auth.js"></script>
+    <script src="/admin/admin.js"></script> 
+    <script>
         const variantsContainer = document.getElementById('variants-container');
         const addVariantBtn = document.getElementById('add-variant-btn');
+        const productForm = document.getElementById('product-form');
+        const saveBtn = document.getElementById('save-product-btn');
         const formMessage = document.getElementById('form-message');
-        const form = document.getElementById('add-product-form');
+        const pageTitle = document.getElementById('page-title');
         
-        let editProductId = null; // 用于判断是新建还是编辑
+        let existingProductId = null; // 用于判断是“新建”还是“编辑”
 
-	    // --- 2. TinyMCE 初始化 ---
-	    tinymce.init({
-	        selector: '#prod-desc',
-	        language: 'zh_CN',
-	        height: 400,
-	        plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table paste code help wordcount',
-	        toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image media link | code | fullscreen | help',
-	        base_url: '/static/tinymce',
-            // 确保 TinyMCE 初始化后再执行加载
-            setup: (editor) => {
-                editor.on('init', () => {
-                    // TinyMCE 加载完毕后，再检查是否为编辑模式
-                    checkEditMode();
-                });
+        // 初始化 TinyMCE 编辑器
+        tinymce.init({
+            selector: '#description',
+            plugins: 'lists link image media codesample wordcount',
+            toolbar: 'undo redo | blocks | bold italic | alignleft aligncenter alignright | indent outdent | bullist numlist | link image media codesample',
+            language: 'zh_CN',
+            skin: 'oxide',
+            content_css: '/static/bootstrap.min.css'
+        });
+
+        // 1. 添加一个新规格卡片
+        function addVariantCard(variant = {}) {
+            const template = document.getElementById('variant-card-template');
+            const clone = template.content.cloneNode(true);
+            const variantCard = clone.querySelector('.variant-card');
+
+            // (!!!) 关键修复: 存储 variant.id (用于编辑)
+            if (variant.id) {
+                variantCard.dataset.id = variant.id;
             }
-	    });
+            
+            // 填充数据 (如果有)
+            variantCard.querySelector('.variant-name').value = variant.name || '';
+            // (!!!) 关键修复: 适配 worker 返回的 price 字段
+            variantCard.querySelector('.variant-price').value = variant.price || variant.base_price || '';
+            variantCard.querySelector('.variant-addon-price').value = variant.addon_price || '';
+            variantCard.querySelector('.variant-stock').value = variant.stock_count || variant.stock || 0;
+            variantCard.querySelector('.variant-wholesale-config').value = variant.wholesale_config || '';
 
-		// --- 3. 加载商品分类 (保持不变) ---
-        async function loadCategories() {
-            try {
-                const categories = await adminFetch('/api/admin/categories');
-                const selectElement = document.getElementById('prod-category');
-                
-                categories.forEach(category => {
-                    const option = document.createElement('option');
-                    option.value = category.id;
-                    option.textContent = category.name;
-                    selectElement.appendChild(option);
-                });
-            } catch (error) {
-                console.error("加载分类失败:", error);
-            }
-        }
-        
-        // --- 4. 规格配置逻辑 ---
-        // 规格变体模板 - 创建一个表格行 (<tr>)
-        function createVariantRow(variant = {}) {
-            // 提供默认值
-            const name = variant.name || '';
-            const color = variant.color_code || '';
-            const price = variant.price || '';
-            const wholesale = variant.wholesale_config || '';
-            const stock = variant.stock || '0';
-            const addon = variant.addon_price || '0.00';
-            const sales = variant.sales || '0';
-
-            const tr = document.createElement('tr');
-            tr.className = 'variant-item';
-            tr.innerHTML = `
-                <td>
-                    <input type="text" class="form-control spec-dimension-name" placeholder="例如: 颜色" value="${name}" required>
-                </td>
-                <td>
-                    <input type="text" class="form-control spec-color-code" placeholder="#FF0000" value="${color}">
-                </td>
-                <td>
-                    <input type="number" step="0.01" class="form-control variant-price" placeholder="0.00" value="${price}" required>
-                </td>
-                <td>
-                    <textarea class="form-control variant-wholesale-config" rows="2" placeholder="例: 5=3">${wholesale}</textarea>
-                </td>
-                <td>
-                    <input type="number" class="form-control variant-stock" placeholder="0" value="${stock}">
-                </td>
-                <td>
-                    <input type="number" step="0.01" class="form-control variant-addon-price" placeholder="0.00" value="${addon}">
-                </td>
-                <td>
-                    <input type="number" class="form-control variant-sales" value="${sales}" readonly>
-                </td>
-                <td>
-                    <button type="button" class="btn btn-sm btn-danger remove-variant-btn" title="删除规格">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            `;
-            // 删除按钮事件
-            tr.querySelector('.remove-variant-btn').addEventListener('click', () => {
-                tr.remove();
-                if (variantsContainer.children.length === 0) {
-                    variantsContainer.appendChild(createVariantRow());
+            // 绑定删除按钮
+            variantCard.querySelector('.remove-variant-btn').addEventListener('click', () => {
+                if (variantsContainer.querySelectorAll('.variant-card').length > 1) {
+                    variantCard.remove();
+                } else {
+                    alert('至少需要保留一个商品规格。');
                 }
             });
-            return tr;
+
+            variantsContainer.appendChild(clone);
         }
 
-        // 监听添加变体按钮
-        addVariantBtn.addEventListener('click', () => {
-            variantsContainer.appendChild(createVariantRow());
-        });
-
-        // (在 checkEditMode 中决定是否添加默认行)
-
-        // --- 5. 检查编辑模式并加载数据 (核心新增) ---
-        async function checkEditMode() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const productId = urlParams.get('id');
-            
-            if (productId) {
-                // --- 编辑模式 ---
-                editProductId = productId;
-                
-                // 1. 修改 UI
-                document.getElementById('page-title').innerHTML = `编辑商品 (ID: ${productId}) <small class="text-muted fs-5">(修改商品信息)</small>`;
-                document.getElementById('submit-button').innerHTML = '<i class="fas fa-save"></i> 更新商品';
-                document.title = `编辑商品 ID ${productId} - CloudCard`;
-                
-                // 2. 加载数据
-                try {
-                    // (使用我们在 _worker.js 中添加的新路由)
-                    const product = await adminFetch(`/api/admin/products/${productId}`);
-                    
-                    // 3. 填充表单
-                    document.getElementById('prod-name').value = product.name || '';
-                    document.getElementById('prod-short-desc').value = product.short_description || '';
-                    document.getElementById('prod-keywords').value = product.keywords || '';
-                    document.getElementById('prod-category').value = product.category_id || '';
-                    document.getElementById('prod-image').value = product.image_url || '';
-                    
-                    // (等待 TinyMCE 加载完成)
-                    tinymce.get('prod-desc').setContent(product.description || '');
-                    
-                    document.getElementById('prod-sort-weight').value = product.sort_weight || 0;
-                    document.getElementById('prod-is-active').checked = product.is_active;
-                    
-                    // 4. 填充规格
-                    variantsContainer.innerHTML = ''; // 清空
-                    if (product.variants && product.variants.length > 0) {
-                        product.variants.forEach(variant => {
-                            variantsContainer.appendChild(createVariantRow(variant));
-                        });
-                    } else {
-                        // 如果商品没有规格 (旧数据?)，添加一个空行
-                        variantsContainer.appendChild(createVariantRow());
-                    }
-                    
-                } catch (error) {
-                    formMessage.textContent = `加载商品数据失败: ${error.message}`;
-                    formMessage.className = 'mt-3 text-danger';
-                    formMessage.style.display = 'block';
+        // 2. 加载分类列表
+        async function loadCategories() {
+            const select = document.getElementById('category-id');
+            try {
+                const categories = await adminFetch('/api/admin/categories');
+                if (categories && categories.length > 0) {
+                    categories.forEach(cat => {
+                        const option = document.createElement('option');
+                        option.value = cat.id;
+                        option.textContent = cat.name;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">未找到分类</option>';
                 }
-                
+            } catch (error) {
+                console.error('Error loading categories:', error);
+                select.innerHTML = '<option value="">加载分类失败</option>';
+            }
+        }
+
+        // 3. (用于编辑) 加载现有商品数据
+        async function loadProductData(id) {
+            pageTitle.textContent = `编辑商品 (ID: ${id})`;
+            try {
+                // (!!!) 关键修复: 这依赖 _worker.js 中 GET /api/admin/products/:id 的正确实现
+                const product = await adminFetch('/api/admin/products/' + id);
+                populateForm(product);
+            } catch (error) {
+                showMessage(`加载商品失败: ${error.message}`, 'danger');
+            }
+        }
+
+        // 4. (用于编辑) 填充表单
+        function populateForm(product) {
+            document.getElementById('name').value = product.name;
+            tinymce.get('description').setContent(product.description || '');
+            document.getElementById('category-id').value = product.category_id;
+            document.getElementById('image_url').value = product.image_url;
+            document.getElementById('sort_weight').value = product.sort_weight;
+            document.getElementById('is_active').checked = product.is_active;
+            document.getElementById('short_description').value = product.short_description;
+            document.getElementById('keywords').value = product.keywords;
+
+            // 填充规格
+            variantsContainer.innerHTML = ''; // 清空
+            if (product.variants && product.variants.length > 0) {
+                product.variants.forEach(variant => addVariantCard(variant));
             } else {
-                // --- 新建模式 ---
-                // 页面初始化时确保至少有一行
-                if (variantsContainer.children.length === 0) {
-                    variantsContainer.appendChild(createVariantRow());
+                addVariantCard(); // 添加一个空卡片
+            }
+        }
+
+        // 5. 收集规格数据
+        function collectVariantsData() {
+            const variantCards = variantsContainer.querySelectorAll('.variant-card');
+            const variants = [];
+            let isValid = true;
+
+            variantCards.forEach(variantCard => {
+                const name = variantCard.querySelector('.variant-name').value;
+                const price = variantCard.querySelector('.variant-price').value;
+
+                if (!name || !price) {
+                    isValid = false;
                 }
+                
+                // (!!!) 关键修复: 收集 variant.id (用于编辑)
+                const variantId = variantCard.dataset.id ? parseInt(variantCard.dataset.id, 10) : undefined;
+
+                variants.push({
+                    id: variantId, // (!!!) 关键新增
+                    name: name,
+                    price: price,
+                    // (注意: 只有第一个卡片的 addon/wholesale 会被 worker 保存到 Products 表)
+                    addon_price: variantCard.querySelector('.variant-addon-price').value || 0,
+                    stock: variantCard.querySelector('.variant-stock').value || 0,
+                    wholesale_config: variantCard.querySelector('.variant-wholesale-config').value || ''
+                });
+            });
+
+            if (!isValid) {
+                throw new Error('所有规格的 "规格名称" 和 "价格" 都是必填项。');
+            }
+            if (variants.length === 0) {
+                throw new Error('商品必须至少有一个规格。');
+            }
+            return variants;
+        }
+
+        // 6. 提交表单
+        async function handleSubmit(event) {
+            event.preventDefault();
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在保存...';
+
+            try {
+                await tinymce.triggerSave(); // 确保 textarea 内容同步
+                const variants = collectVariantsData();
+                
+                const productData = {
+                    name: document.getElementById('name').value,
+                    description: document.getElementById('description').value,
+                    category_id: document.getElementById('category-id').value,
+                    image_url: document.getElementById('image_url').value,
+                    sort_weight: document.getElementById('sort_weight').value || 0,
+                    is_active: document.getElementById('is_active').checked,
+                    short_description: document.getElementById('short_description').value,
+                    keywords: document.getElementById('keywords').value,
+                    variants: variants // 包含规格的数组
+                };
+
+                let response;
+                let method = existingProductId ? 'PUT' : 'POST';
+                let url = existingProductId 
+                    ? `/api/admin/products/${existingProductId}` 
+                    : '/api/admin/products';
+
+                response = await adminFetch(url, {
+                    method: method,
+                    body: productData // admin.js 会自动 stringify
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showMessage('商品保存成功！', 'success');
+                    if (!existingProductId) {
+                        // 如果是新建，重定向到编辑页面
+                        window.location.search = `?id=${result.id}`;
+                    } else {
+                        // 如果是编辑，重新加载数据以显示正确ID
+                        loadProductData(existingProductId);
+                    }
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || '保存失败');
+                }
+
+            } catch (error) {
+                showMessage(`保存失败: ${error.message}`, 'danger');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> 保存商品';
             }
         }
         
-        // --- 6. 提交表单 (修改) ---
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            formMessage.style.display = 'none';
+        // 7. 显示消息
+        function showMessage(message, type = 'danger') {
+            formMessage.textContent = message;
+            formMessage.className = `alert alert-${type}`;
+            formMessage.style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
+        }
 
-            // 7. 从 TinyMCE 获取内容
-            const detailedDescription = tinymce.get('prod-desc').getContent();
-            
-            const variantRows = variantsContainer.querySelectorAll('.variant-item');
-            const variantsData = [];
+        // --- 页面初始化 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
 
-            // (校验逻辑保持不变)
-            const isMultiSpec = variantRows.length > 1 || (variantRows.length === 1 && variantRows[0].querySelector('.spec-dimension-name').value.trim() !== '');
-            let hasError = false;
-            
-            for (const row of variantRows) {
-                const specNameInput = row.querySelector('.spec-dimension-name');
-                const specColorCodeInput = row.querySelector('.spec-color-code');
-                const priceInput = row.querySelector('.variant-price');
-                const wholesaleInput = row.querySelector('.variant-wholesale-config');
-                const stockInput = row.querySelector('.variant-stock');
-                const addonInput = row.querySelector('.variant-addon-price');
-                const salesInput = row.querySelector('.variant-sales');
-                
-                const name = specNameInput.value.trim();
-                const colorCode = specColorCodeInput.value.trim();
-                const price = parseFloat(priceInput.value);
-                const wholesaleConfig = wholesaleInput.value.trim();
-                const stock = parseInt(stockInput.value) || 0;
-                const addon_price = parseFloat(addonInput.value) || 0;
-                const sales = parseInt(salesInput.value) || 0;
-                
-                if (isMultiSpec && name === '') {
-                    formMessage.textContent = '多规格商品中规格名称不能为空。';
-                    formMessage.className = 'mt-3 text-danger';
-                    formMessage.style.display = 'block';
-                    hasError = true;
-                    break;
-                }
-                if (isNaN(price) || price <= 0) {
-                    formMessage.textContent = `规格 "${name || '默认/单规格'}" 的售价必须是有效数字且大于 0。`;
-                    formMessage.className = 'mt-3 text-danger';
-                    formMessage.style.display = 'block';
-                    hasError = true;
-                    break;
-                }
-                if (!isMultiSpec && variantsData.length > 0) {
-                    continue; 
-                }
-                
-                variantsData.push({
-                    name: name, 
-                    color_code: colorCode, 
-                    price: price, 
-                    stock: stock, 
-                    addon_price: addon_price, 
-                    wholesale_config: wholesaleConfig,
-                    sales: sales, 
-                });
-            }
-            if (hasError) return;
-            if (!isMultiSpec) {
-                if (variantsData.length > 1) variantsData.splice(1); 
-                if (variantsData.length > 0) {
-                    variantsData[0].name = "默认规格"; 
-                }
-            }
-            if (variantsData.length === 0) {
-                 formMessage.textContent = '至少需要一个规格配置。';
-                 formMessage.className = 'mt-3 text-danger';
-                 formMessage.style.display = 'block';
-                 return;
+            const urlParams = new URLSearchParams(window.location.search);
+            existingProductId = urlParams.get('id');
+
+            if (existingProductId) {
+                // 编辑模式
+                loadProductData(existingProductId);
+            } else {
+                // 新建模式
+                addVariantCard(); // 默认添加一个空规格卡片
             }
 
-            // --- 组装数据 (保持不变) ---
-            const productData = {
-                name: document.getElementById('prod-name').value,
-                short_description: document.getElementById('prod-short-desc').value,
-                keywords: document.getElementById('prod-keywords').value,
-                category_id: document.getElementById('prod-category').value, 
-                image_url: document.getElementById('prod-image').value,
-                description: detailedDescription,
-                sort_weight: parseInt(document.getElementById('prod-sort-weight').value) || 0,
-                is_active: document.getElementById('prod-is-active').checked,
-	            variants: variantsData 
-	        };
-
-            // --- 核心修改：区分新建 (POST) 和更新 (PUT) ---
-            try {
-                let apiEndpoint;
-                let apiMethod;
-                let successMessage;
-
-                if (editProductId) {
-                    // --- 更新 (编辑) ---
-                    apiEndpoint = `/api/admin/products/${editProductId}`;
-                    apiMethod = 'PUT';
-                    successMessage = '更新成功！';
-                } else {
-                    // --- 创建 (新建) ---
-                    apiEndpoint = '/api/admin/products';
-                    apiMethod = 'POST';
-                    successMessage = '创建成功！';
-                }
-
-                await adminFetch(apiEndpoint, {
-                    method: apiMethod,
-                    body: productData // (保持我们之前的修复，传递对象)
-                });
-
-                formMessage.textContent = successMessage;
-                formMessage.className = 'mt-3 text-success';
-                formMessage.style.display = 'block';
-
-                if (!editProductId) {
-                    // 如果是创建，则重置表单
-                    form.reset();
-                    tinymce.get('prod-desc').setContent('');
-                    while (variantsContainer.firstChild) {
-                        variantsContainer.removeChild(variantsContainer.firstChild);
-                    }
-                    variantsContainer.appendChild(createVariantRow());
-                } else {
-                    // 如果是更新，则停留在页面
-                }
-                
-            } catch (error) {
-                formMessage.textContent = `操作失败: ${error.message}`;
-                formMessage.className = 'mt-3 text-danger';
-                formMessage.style.display = 'block';
-            }
+            addVariantBtn.addEventListener('click', () => addVariantCard());
+            productForm.addEventListener('submit', handleSubmit);
         });
-
-        // --- 7. 页面启动 ---
-        // (必须在 TinyMCE init 之外调用)
-        loadCategories();
-        // (checkEditMode 会在 TinyMCE setup 中被调用)
-	</script>
+    </script>
 </body>
 </html>
