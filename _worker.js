@@ -447,7 +447,12 @@ router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
 
 router.get('/api/admin/articles', withAuth, async (request, env) => {
     try {
-        const { results } = await env.MY_HLTX.prepare("SELECT id, title, created_at FROM Articles ORDER BY created_at DESC").all();
+        const { results } = await env.MY_HLTX.prepare(
+            `SELECT a.id, a.title, a.slug, a.image_url, a.created_at, c.name as category_name 
+             FROM Articles a 
+             LEFT JOIN Categories c ON a.category_id = c.id 
+             ORDER BY a.created_at DESC`
+        ).all();
         return json(results);
     } catch (e) {
         return error(500, '获取文章列表失败: ' + e.message);
