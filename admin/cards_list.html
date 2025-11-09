@@ -152,6 +152,7 @@
                                 <option value="">请先选择商品</option>
                             </select>
                         </div>
+
                         <div class="mb-3">
                             <label for="cardSecret" class="form-label">卡密 (含预选信息)</label>
                             <textarea class="form-control" id="cardSecret" rows="3" required placeholder="粘贴卡密，格式: 卡密信息#[预选信息]#"></textarea>
@@ -223,7 +224,7 @@
             }
         }
 
-        // START: 逻辑修改 - 
+        // START: 逻辑修改 - 二级联动JS
         
         // (新) 函数1: 加载商品列表 (第一个下拉菜单)
         async function loadProductsForModal() {
@@ -270,7 +271,7 @@
             variantSelect.innerHTML = '<option value="">正在加载规格...</option>';
 
             try {
-                // (这依赖 _worker.js 中 GET /api/admin/products/:id 的正确实现)
+                // (!!!) 关键修复: 这依赖 _worker.js 中 GET /api/admin/products/:id 的正确实现
                 const productDetail = await adminFetch(`/api/admin/products/${productId}`);
                 
                 if (productDetail && productDetail.variants && productDetail.variants.length > 0) {
@@ -292,9 +293,8 @@
             }
         }
         
-        // (原) 函数3: 保存卡密 (此函数无需大改)
+        // (原) 函数3: 保存卡密
         async function saveNewCard() {
-            // 只需确保 variantId 是从 #variantSelect 读取的
             const variantId = document.getElementById('variantSelect').value; 
             const secret = document.getElementById('cardSecret').value.trim();
             const isSold = document.getElementById('isSold').value;
@@ -505,7 +505,7 @@
 
         // 页面加载时运行
         
-        // START: 添加事件监听 (更新)
+        // START: 添加事件监听 (已更新)
         const addCardModalEl = document.getElementById('addCardModal');
         addCardModalEl.addEventListener('show.bs.modal', function (event) {
             // 每次打开时重新加载商品列表
