@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章分类管理 - CloudCard</title>
+    
+	<link rel="stylesheet" href="/static/bootstrap.min.css"/>
+	<link rel="stylesheet" href="/static/all.min.css"/>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
+                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
+                <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
+                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
+                <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
+                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li class="submenu-title active"><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li class="submenu-item active"><a href="/admin/article_categories.html">文章分类</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
+        </nav>
+        
+        <main class="main-content">
+            <h1>文章分类管理 <small class="text-muted fs-5">(管理文章的类别)</small></h1>
+
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="admin-card p-3" id="category-list-card">
+                        <h5><i class="fas fa-list-ul"></i> 现有文章分类</h5>
+                        <hr>
+                        <div class="table-responsive">
+                            <table class="admin-table table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>分类名称</th>
+                                        <th>访问路径 (Slug)</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="category-list-body">
+                                    <tr><td colspan="4" class="text-center">正在加载...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <div class="admin-card p-3" id="new-category-card">
+                        <h5><i class="fas fa-plus-circle"></i> 新建文章分类</h5>
+                        <hr>
+                        <form id="new-category-form">
+                            <div id="form-message" class="alert" style="display: none;"></div>
+                            
+                            <div class="mb-3">
+                                <label for="new-article-category-name" class="form-label">分类名称 <span class="text-danger">*</span></label>
+                                <input type="text" id="new-article-category-name" class="form-control" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="new-article-category-slug" class="form-label">访问路径 (Slug) <span class="text-danger">*</span></label>
+                                <input type="text" id="new-article-category-slug" class="form-control" required>
+                                <small class="form-text text-muted">用于 URL，例如 "news" 或 "guides"</small>
+                            </div>
+
+                            <button type="submit" id="save-button" class="btn button w-100">
+                                <i class="fas fa-save"></i> 添加新分类
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+    
+	<script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/admin/auth.js"></script>
+    <script src="/admin/admin.js"></script> 
+    
+    <script>
+        const categoryListBodyEl = document.getElementById('category-list-body');
+        const formEl = document.getElementById('new-category-form');
+        const nameInput = document.getElementById('new-article-category-name');
+        const slugInput = document.getElementById('new-article-category-slug');
+        const saveButton = document.getElementById('save-button');
+        const messageEl = document.getElementById('form-message');
+
+        // 1. 加载现有分类
+        async function loadCategories() {
+            categoryListBodyEl.innerHTML = '<tr><td colspan="4" class="text-center">正在加载...</td></tr>';
+            
+            try {
+                // 使用新的 API 路径
+                const categories = await adminFetch('/api/admin/article_categories');
+                
+                categoryListBodyEl.innerHTML = ''; // 清空
+                
+                if (categories.length === 0) {
+                    categoryListBodyEl.innerHTML = '<tr><td colspan="4" class="text-center">暂无文章分类</td></tr>';
+                    return;
+                }
+                
+                categories.forEach(cat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cat.id}</td>
+                        <td><strong>${cat.name}</strong></td>
+                        <td>/${cat.slug}</td>
+                        <td class="table-actions">
+                            <button class="btn button-danger button-sm" onclick="deleteCategory(${cat.id})" disabled>
+                                <i class="fas fa-trash"></i> 删除
+                            </button>
+                            <small class="text-muted">(删除功能待添加)</small>
+                        </td>
+                    `;
+                    categoryListBodyEl.appendChild(row);
+                });
+
+            } catch (error) {
+                categoryListBodyEl.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${error.message}</td></tr>`;
+            }
+        }
+
+        // 2. 处理新建分类
+        async function handleNewCategorySubmit(e) {
+            e.preventDefault();
+            
+            const name = nameInput.value;
+            const slug = slugInput.value;
+
+            if (!name || !slug) {
+                showMessage('分类名称和 Slug 均不能为空', 'danger');
+                return;
+            }
+
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在保存...';
+
+            try {
+                // 使用新的 API 路径
+                await adminFetch('/api/admin/article_categories', {
+                    method: 'POST',
+                    body: { name, slug } // adminFetch 会自动 JSON.stringify
+                });
+
+                showMessage('文章分类创建成功！', 'success');
+                nameInput.value = '';
+                slugInput.value = '';
+                
+                // 重新加载列表
+                await loadCategories();
+
+            } catch (error) {
+                showMessage(error.message, 'danger');
+            } finally {
+                saveButton.disabled = false;
+                saveButton.innerHTML = '<i class="fas fa-save"></i> 添加新分类';
+            }
+        }
+        
+        // 3. (占位符) 删除分类
+        // 您在 _worker.js 中尚未添加 DELETE 路由，因此此功能暂不可用
+        async function deleteCategory(id) {
+            alert(`删除 ID ${id} 的功能尚未在 _worker.js 中实现。`);
+            // if (!confirm(`确定要删除 ID 为 ${id} 的分类吗？`)) return;
+            // try {
+            //     await adminFetch(`/api/admin/article_categories/${id}`, { method: 'DELETE' });
+            //     await loadCategories();
+            // } catch (error) {
+            //     alert(`删除失败: ${error.message}`);
+            // }
+        }
+
+        // 4. 显示消息
+        function showMessage(msg, type = 'success') {
+            messageEl.textContent = msg;
+            messageEl.className = `alert alert-${type}`;
+            messageEl.style.display = 'block';
+        }
+
+        // 5. 启动
+        formEl.addEventListener('submit', handleNewCategorySubmit);
+        loadCategories();
+    </script>
+</body>
+</html>
