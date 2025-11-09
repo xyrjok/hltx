@@ -38,7 +38,7 @@
                 <div class="admin-toolbar mb-3">
                     <div class="input-group search-input">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" id="card-search" class="form-control" placeholder="搜索卡密内容..." onkeyup="filterCards()">
+                        <input type="text" id="card-search" class="form-control" placeholder="搜索卡密或预选信息..." onkeyup="filterCards()">
                     </div>
 
                     <div class="select-group">
@@ -62,6 +62,7 @@
                     <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addCardModal">
                         <i class="fas fa-plus"></i> 新增卡密
                     </button>
+
                     <button id="bulk-edit-btn" class="btn button-info" onclick="openBulkEditModal()" disabled>
                         <i class="fas fa-edit"></i> 批量编辑
                     </button>
@@ -79,6 +80,7 @@
                                     <input type="checkbox" id="select-all" class="form-check-input" onclick="toggleSelectAll()">
                                 </th>
                                 <th>卡密内容 <i class="fas fa-sort-alpha-down"></i></th>
+                                <th>预选信息</th>
                                 <th>关联商品 (规格ID)</th>
                                 <th>状态 <i class="fas fa-sort"></i></th>
                                 <th>导入时间</th>
@@ -86,8 +88,8 @@
                             </tr>
                         </thead>
                         <tbody id="card-list-body">
-                            <tr><td colspan="6" class="text-center">正在加载卡密...</td></tr>
-                        </tbody>
+                            <tr><td colspan="7" class="text-center">正在加载卡密...</td></tr>
+                            </tbody>
                     </table>
                 </div>
                 
@@ -145,7 +147,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="cardSecret" class="form-label">卡密</label>
-                            <textarea class="form-control" id="cardSecret" rows="3" required placeholder="可一次性粘贴多行，每行一个卡密"></textarea>
+                            <textarea class="form-control" id="cardSecret" rows="3" required placeholder="粘贴卡密，格式: 卡密信息#[预选信息]#"></textarea>
                         </div>
                         <div class="mb-3">
                             <label for="isSold" class="form-label">是否售出</label>
@@ -163,7 +165,8 @@
             </div>
         </div>
     </div>
-    <script src="/static/bootstrap.bundle.min.js"></script>
+    
+	<script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/admin/auth.js"></script>
     <script src="/admin/admin.js"></script> 
 	<script>
@@ -186,20 +189,24 @@
         // 1. 加载现有卡密
         async function loadCards() {
             listMessageEl.style.display = 'none';
-            cardListBodyEl.innerHTML = '<tr><td colspan="6" class="text-center">正在加载卡密...</td></tr>';
+            // START: 修改 colspan
+            cardListBodyEl.innerHTML = '<tr><td colspan="7" class="text-center">正在加载卡密...</td></tr>';
+            // END: 修改 colspan
             document.getElementById('select-all').checked = false;
             updateBulkButtons();
 
             try {
                 // 使用 adminFetch 替换 fetch
-                cardsData = await adminFetch('/api/admin/cards');
+                // _worker.js 的 SELECT * 会自动包含 preset_info
+                cardsData = await adminFetch('/api/admin/cards'); 
 
-                // --- 模拟数据增强 ---
+                // --- 模拟数据增强 (保留) ---
                 if (cardsData.length > 0 && cardsData[0].card_id === undefined) {
                     cardsData = cardsData.map((card, index) => ({
                         ...card,
                         card_id: card.card_id || (index + 1),
                         card_key: card.card_key || `ABC-123-${1000 + index}`,
+                        preset_info: card.preset_info || null, // 确保模拟数据也有
                         variant_id: card.variant_id || (Math.floor(Math.random() * 2) + 1),
                         product_name: card.product_name || `商品 ${card.variant_id === 1 ? 'A' : 'B'}`,
                         is_used: card.is_used || (Math.random() > 0.8 ? 1 : 0),
@@ -211,7 +218,9 @@
                 applyFiltersAndSort();
 
             } catch (error) {
-                cardListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
+                // START: 修改 colspan
+                cardListBodyEl.innerHTML = `<tr><td colspan="7" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
+                // END: 修改 colspan
             }
         }
 
@@ -266,6 +275,7 @@
         // START: 新增函数 - 保存新卡密
         async function saveNewCard() {
             const variantId = document.getElementById('variantSelect').value;
+            // "secret" 包含用户粘贴的完整内容 (例如: aaa#[bbb]#)
             const secret = document.getElementById('cardSecret').value.trim();
             const isSold = document.getElementById('isSold').value;
 
@@ -280,11 +290,12 @@
 
             try {
                 // adminFetch (在 admin.js) 会自动 stringify 对象
+                // 后端 _worker.js (handleAddCard) 会负责解析 "secret" 字段
                 const response = await adminFetch('/api/admin/cards', {
                     method: 'POST',
                     body: { 
                         variant_id: parseInt(variantId, 10),
-                        secret: secret, // 后端将处理多行
+                        secret: secret, // 发送完整内容，后端解析
                         is_sold: parseInt(isSold, 10)
                     }
                 });
@@ -314,10 +325,15 @@
         function displayCards(cards, sortValue, searchValue) {
             const productFilter = document.getElementById('filter-product').value;
             const statusFilter = document.getElementById('filter-status').value;
+            const searchLower = searchValue.toLowerCase();
             
             // A. 过滤
             let filteredCards = cards.filter(card => {
-                const matchesSearch = String(card.card_key).toLowerCase().includes(searchValue.toLowerCase());
+                // START: 修改搜索逻辑
+                const matchesSearch = String(card.card_key).toLowerCase().includes(searchLower) ||
+                                      (card.preset_info && String(card.preset_info).toLowerCase().includes(searchLower));
+                // END: 修改搜索逻辑
+                
                 const matchesProduct = !productFilter || String(card.variant_id) === productFilter;
                 const matchesStatus = statusFilter === "" || String(card.is_used) === statusFilter;
                 return matchesSearch && matchesProduct && matchesStatus;
@@ -332,17 +348,27 @@
             cardListBodyEl.innerHTML = '';
             
             if (filteredCards.length === 0) {
-                cardListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center">未找到匹配的卡密。</td></tr>`;
+                // START: 修改 colspan
+                cardListBodyEl.innerHTML = `<tr><td colspan="7" class="text-center">未找到匹配的卡密。</td></tr>`;
+                // END: 修改 colspan
                 return;
             }
 
             filteredCards.forEach(card => {
                 const row = document.createElement('tr');
+                
+                // START: 修改 - 添加 preset_info 
+                // (使用 <pre> 标签保留换行, <small> 使其不那么显眼)
+                const presetHtml = card.preset_info 
+                    ? `<small><pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">${card.preset_info}</pre></small>` 
+                    : '<span class="text-muted">无</span>';
+                
                 row.innerHTML = `
                     <td>
                         <input type="checkbox" class="form-check-input card-checkbox" data-id="${card.card_id}" onchange="updateBulkButtons()">
                     </td>
                     <td><strong>${card.card_key}</strong></td>
+                    <td>${presetHtml}</td>
                     <td>${card.product_name} <span class="badge bg-info">${card.variant_id}</span></td>
                     <td>${statusMap[card.is_used] || '未知'}</td>
                     <td>${new Date(card.created_at).toLocaleDateString()}</td>
@@ -352,6 +378,7 @@
                         </button>
                     </td>
                 `;
+                // END: 修改
                 cardListBodyEl.appendChild(row);
             });
         }
