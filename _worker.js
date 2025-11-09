@@ -461,12 +461,12 @@ router.get('/api/admin/articles', withAuth, async (request, env) => {
 
 
 router.post('/api/admin/articles', withAuth, async (request, env) => {
-    const { title, slug, summary, content } = await request.json();
+    const { title, slug, summary, content, image_url, category_id } = await request.json(); 
     if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
     try {
         await env.MY_HLTX.prepare(
-            "INSERT INTO Articles (title, slug, summary, content) VALUES (?1, ?2, ?3, ?4)"
-        ).bind(title, slug, summary || '', content).run();
+            "INSERT INTO Articles (title, slug, summary, content, image_url, category_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)" 
+        ).bind(title, slug, summary || '', content, image_url || '', category_id ? parseInt(category_id) : null).run(); 
         const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
         return json({ id: result.id, success: true }, { status: 201 });
     } catch (e) {
@@ -477,7 +477,7 @@ router.post('/api/admin/articles', withAuth, async (request, env) => {
 router.get('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
     try {
         const article = await env.MY_HLTX.prepare(
-            "SELECT id, title, slug, summary, content FROM Articles WHERE id = ?1"
+            "SELECT id, title, slug, summary, content, image_url, category_id FROM Articles WHERE id = ?1" 
         ).bind(params.id).first();
         
         if (!article) return error(404, '文章未找到');
@@ -489,13 +489,13 @@ router.get('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
 
 // (添加) 更新文章
 router.put('/api/admin/articles/:id', withAuth, async ({ params, request }, env) => {
-    const { title, slug, summary, content } = await request.json();
+    const { title, slug, summary, content, image_url, category_id } = await request.json(); 
     if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
     
     try {
         await env.MY_HLTX.prepare(
-            "UPDATE Articles SET title = ?1, slug = ?2, summary = ?3, content = ?4 WHERE id = ?5"
-        ).bind(title, slug, summary || '', content, params.id).run();
+            "UPDATE Articles SET title = ?1, slug = ?2, summary = ?3, content = ?4, image_url = ?5, category_id = ?6 WHERE id = ?7" 
+        ).bind(title, slug, summary || '', content, image_url || '', category_id ? parseInt(category_id) : null, params.id).run(); 
         
         return json({ id: params.id, success: true });
     } catch (e) {
