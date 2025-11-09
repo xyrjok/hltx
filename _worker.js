@@ -46,10 +46,17 @@ router.post('/api/auth/login', async (request, env) => {
 
 // --- 公共 API 路由 ---
 
-// (分类、文章等保持不变)
-router.get('/api/categories', async (request, env) => { /* ... */ });
-router.get('/api/articles', async (request, env) => { /* ... */ });
-router.get('/api/articles/:slug', async ({ params }, env) => { /* ... */ });
+// 获取所有分类
+router.get('/api/categories', async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare(
+            "SELECT id, name, slug FROM Categories"
+        ).all();
+        return json(results);
+    } catch (e) {
+        return error(500, '获取分类失败: ' + e.message);
+    }
+});
 
 // 获取所有商品列表 (公共)
 router.get('/api/products', async (request, env) => {
@@ -64,7 +71,6 @@ router.get('/api/products', async (request, env) => {
 });
 
 // 获取单个商品详情 (公共)
-// START: 关键修改 - 公共API现在也从 ProductVariants 读取
 router.get('/api/products/:id', async ({ params }, env) => {
     try {
         const product = await env.MY_HLTX.prepare(
@@ -73,7 +79,6 @@ router.get('/api/products/:id', async ({ params }, env) => {
 
         if (!product) return error(404, 'Product not found or not active');
         
-        // (!!!) 关键修改: 公共API现在也获取每个规格的独立配置
         const { results: variants } = await env.MY_HLTX.prepare(
             `SELECT id, name, price_adjustment, stock_count, 
                     addon_price, wholesale_config 
@@ -84,7 +89,6 @@ router.get('/api/products/:id', async ({ params }, env) => {
         product.variants = variants;
         
         delete product.variants_json;
-        // (删除主表上的冗余字段，不发送给前端)
         delete product.addon_price; 
         delete product.wholesale_config;
         
@@ -93,10 +97,34 @@ router.get('/api/products/:id', async ({ params }, env) => {
         return error(500, '获取商品详情失败: ' + e.message);
     }
 });
-// END: 关键修改
+
+// 获取文章列表
+router.get('/api/articles', async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare(
+            "SELECT id, title, slug, summary, created_at FROM Articles ORDER BY created_at DESC"
+        ).all();
+        return json(results);
+    } catch (e) {
+        return error(500, '获取文章列表失败: ' + e.message);
+    }
+});
+
+// 获取单个文章详情
+router.get('/api/articles/:slug', async ({ params }, env) => {
+    try {
+        const article = await env.MY_HLTX.prepare(
+            "SELECT id, title, slug, summary, content, created_at FROM Articles WHERE slug = ?1"
+        ).bind(params.slug).first();
+
+        if (!article) return error(404, 'Article not found');
+        return json(article);
+    } catch (e) {
+        return error(500, '获取文章详情失败: ' + e.message);
+    }
+});
 
 // 创建订单
-// START: 关键修改 - 订单API现在也从 ProductVariants 读取
 router.post('/api/orders', async (request, env) => {
     const { variant_id, custom_info } = await request.json();
     const variantIdInt = parseInt(variant_id);
@@ -104,7 +132,6 @@ router.post('/api/orders', async (request, env) => {
     if (isNaN(variantIdInt)) return error(400, 'Invalid variant ID');
 
     try {
-        // (!!!) 关键修改: 从 pv (ProductVariants) 获取 addon_price
         const { results: variantResults } = await env.MY_HLTX.prepare(`
             SELECT 
                 pv.price_adjustment, pv.stock_count, pv.addon_price, 
@@ -128,12 +155,10 @@ router.post('/api/orders', async (request, env) => {
             return error(400, '库存不足');
         }
 
-        // (!!!) 关键修改: totalAmount 现在使用 variant.addon_price
         const totalAmount = variant.base_price + variant.price_adjustment + (variant.addon_price || 0);
         const orderId = `D1-${Date.now()}`;
         const paymentId = `PAY-${Date.now()}`;
 
-        // (后续逻辑不变)
         await env.MY_HLTX.prepare(`
             INSERT INTO Orders (id, variant_id, total_amount, status, payment_id, delivered_card)
             VALUES (?1, ?2, ?3, 'paid', ?4, ?5)
@@ -161,7 +186,7 @@ router.post('/api/orders', async (request, env) => {
         return error(500, '创建订单失败: ' + e.message);
     }
 });
-// END: 关键修改
+
 
 // 获取订单详情
 router.get('/api/orders/:id', async ({ params }, env) => {
@@ -207,7 +232,6 @@ router.get('/api/admin/products', withAuth, async (request, env) => {
 
 
 // 添加新商品 (后台管理)
-// START: 关键修改 - 写入 ProductVariants
 router.post('/api/admin/products', withAuth, async (request, env) => {
     
     const body = await request.json();
@@ -224,17 +248,15 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
 
     const firstVariant = variants[0];
     const base_price = parseFloat(firstVariant.price);
-    const stock = parseInt(firstVariant.stock) || 0; // (这个 stock 只是一个冗余值, 真正的值在 PV)
+    const stock = parseInt(firstVariant.stock) || 0;
     
     const isActiveInt = otherData.is_active ? 1 : 0;
-    // (我们仍保存 variants_json, 因为它包含 color_code 等 UI 字段)
     let variantsJson = JSON.stringify(variants); 
 
     const db = env.MY_HLTX;
 
     try {
         // --- 1. 插入主表 Products ---
-        // (!!!) 关键: addon_price 和 wholesale_config 不再保存到主表
         const stmt = db.prepare(
             `INSERT INTO Products (
                 name, description, base_price, image_url, variants_json, 
@@ -256,7 +278,6 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
         const newProductId = result.id;
 
         // --- 2. 插入规格表 ProductVariants ---
-        // (!!!) 关键: 现在为每个规格插入独立的 addon_price 和 wholesale_config
         const variantStmts = variants.map(variant => {
             return db.prepare(
                 `INSERT INTO ProductVariants (
@@ -266,10 +287,10 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
             ).bind(
                 newProductId,
                 variant.name,
-                parseFloat(variant.price) - base_price, // price_adjustment
-                variant.stock_count || 0, // (从 variant.stock_count 读取)
-                parseFloat(variant.addon_price) || 0, // (独立保存)
-                variant.wholesale_config || ''        // (独立保存)
+                parseFloat(variant.price) - base_price, 
+                variant.stock_count || 0,
+                parseFloat(variant.addon_price) || 0, 
+                variant.wholesale_config || ''
             );
         });
         
@@ -281,14 +302,12 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
         return error(500, '创建商品失败: ' + e.message); 
     }
 });
-// END: 关键修改
 
 
 // 删除商品
 router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     const db = env.MY_HLTX;
     try {
-        // ON DELETE CASCADE 会自动处理 ProductVariants
         await db.prepare("DELETE FROM Products WHERE id = ?1").bind(params.id).run();
         return json({ success: true });
     } catch (e) {
@@ -297,7 +316,6 @@ router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
 });
 
 // 获取单个商品详情 (后台管理)
-// START: 关键修改 - 从 ProductVariants 读取
 router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     try {
         const productId = params.id;
@@ -309,7 +327,6 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
 
         if (!product) return error(404, '商品未找到');
 
-        // (!!!) 关键修复: 从 ProductVariants 表读取所有独立字段
         const { results: pv_data } = await db.prepare(
             `SELECT id, name, price_adjustment, stock_count, 
                     addon_price, wholesale_config 
@@ -317,36 +334,31 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
              WHERE product_id = ?1`
         ).bind(productId).all();
 
-        // (为了 UI, 我们仍需 `variants_json` 里的 color_code, sales 等)
         const variants_from_json = JSON.parse(product.variants_json || '[]');
         
-        // (合并数据：以 pv_data 为基础，混入 variants_json 的额外数据)
         const pv_map = new Map(pv_data.map(v => [v.id, v]));
         const final_variants = [];
 
-        // (如果 variants_json 和 pv_data 同步)
-        if (variants_from_json.length === pv_data.length) {
+        // (尽力同步 JSON 和 DB 中的数据)
+        // (此逻辑假设 `variants_json` 至少包含了 `pv_data` 的所有条目)
+        if (variants_from_json.length >= pv_data.length && variants_from_json.length > 0) {
              for (let i = 0; i < variants_from_json.length; i++) {
-                 // (假设顺序一致, 这是一个脆弱的假设, 但
-                 // `products_new.html` 是这样保存的)
-                 // (为了健壮性, 我们最好通过ID匹配)
                  const json_variant = variants_from_json[i];
-                 const pv_variant = pv_data[i]; // (假设顺序匹配)
+                 // (尝试通过 `json_variant.id` 或索引 `i` 来匹配)
+                 const pv_variant = (json_variant.id && pv_map.get(json_variant.id)) ? 
+                                    pv_map.get(json_variant.id) : 
+                                    pv_data[i]; // (如果ID不存在或不匹配，则回退到索引匹配)
                  
-                 // (如果 pv_variant 不存在，说明数据不同步)
                  if (!pv_variant) continue; 
                  
                  final_variants.push({
-                     ...json_variant, // (包含 color_code, sales)
-                     ...pv_variant, // (覆盖 name, stock_count, addon_price,
-                                    // wholesale_config)
-                     price: product.base_price + pv_variant.price_adjustment // (计算
-                                                                             // 售价)
+                     ...json_variant, 
+                     ...pv_variant, 
+                     price: product.base_price + pv_variant.price_adjustment
                  });
              }
         }
         
-        // (如果数据不同步，则只使用 pv_data)
         if (final_variants.length === 0) {
             product.variants = pv_data.map(v => ({
                 ...v,
@@ -363,10 +375,8 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
         return error(500, '获取商品详情失败: ' + e.message);
     }
 });
-// END: 关键修改
 
 // 更新商品 (后台管理)
-// START: 关键修改 - 写入 ProductVariants
 router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     const productId = params.id;
     const db = env.MY_HLTX;
@@ -385,13 +395,12 @@ router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     
     const firstVariant = variants[0];
     const base_price = parseFloat(firstVariant.price);
-    const stock = parseInt(firstVariant.stock) || 0; // (冗余)
+    const stock = parseInt(firstVariant.stock) || 0; 
     const isActiveInt = otherData.is_active ? 1 : 0;
     let variantsJson = JSON.stringify(variants);
     
     try {
         // --- 1. 更新主表 Products ---
-        // (!!!) 关键: 不再更新 addon_price 和 wholesale_config
         const stmt = db.prepare(
             `UPDATE Products SET
                 name = ?1, description = ?2, base_price = ?3, image_url = ?4,
@@ -409,11 +418,8 @@ router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
         ).run();
 
         // --- 2. 同步规格表 ProductVariants ---
-        // (先删除所有旧的)
         await db.prepare("DELETE FROM ProductVariants WHERE product_id = ?1").bind(productId).run();
         
-        // (!!!) 关键: 插入所有新的, 包含独立的 addon_price 和
-        // wholesale_config
         const variantStmts = variants.map(variant => {
             return db.prepare(
                 `INSERT INTO ProductVariants (
@@ -423,7 +429,7 @@ router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
             ).bind(
                 productId,
                 variant.name,
-                parseFloat(variant.price) - base_price, // price_adjustment
+                parseFloat(variant.price) - base_price,
                 variant.stock_count || variant.stock || 0,
                 parseFloat(variant.addon_price) || 0,
                 variant.wholesale_config || ''
@@ -438,18 +444,85 @@ router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
         return error(500, '更新商品失败: ' + e.message); 
     }
 });
-// END: 关键修改
 
 
-// --- 其他 Admin API (保持不变) ---
+// --- 其他 Admin API (已恢复) ---
 
-router.get('/api/admin/articles', withAuth, async (request, env) => { /* ... */ });
-router.post('/api/admin/articles', withAuth, async (request, env) => { /* ... */ });
-router.get('/api/admin/categories', withAuth, async (request, env) => { /* ... */ });
-router.post('/api/admin/categories', withAuth, async (request, env) => { /* ... */ });
-router.get('/api/admin/orders', withAuth, async (request, env) => { /* ... */ });
+// START: 关键修复 - 恢复被折叠的代码
+router.get('/api/admin/articles', withAuth, async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare("SELECT id, title, created_at FROM Articles ORDER BY created_at DESC").all();
+        return json(results);
+    } catch (e) {
+        return error(500, '获取文章列表失败: ' + e.message);
+    }
+});
 
-// (卡密管理 API 无需改动)
+
+router.post('/api/admin/articles', withAuth, async (request, env) => {
+    const { title, slug, summary, content } = await request.json();
+    if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
+    try {
+        await env.MY_HLTX.prepare(
+            "INSERT INTO Articles (title, slug, summary, content) VALUES (?1, ?2, ?3, ?4)"
+        ).bind(title, slug, summary || '', content).run();
+        const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
+        return json({ id: result.id, success: true }, { status: 201 });
+    } catch (e) {
+        return error(500, '创建文章失败: ' + e.message);
+    }
+});
+
+
+router.get('/api/admin/categories', withAuth, async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare("SELECT * FROM Categories").all();
+        return json(results);
+    } catch (e) {
+        return error(500, '获取分类失败: ' + e.message);
+    }
+});
+
+
+router.post('/api/admin/categories', withAuth, async (request, env) => {
+    const { name, slug } = await request.json();
+    if (!name || !slug) return error(400, '名称和Slug是必填项');
+    try {
+        await env.MY_HLTX.prepare(
+            "INSERT INTO Categories (name, slug) VALUES (?1, ?2)"
+        ).bind(name, slug).run();
+        const result = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
+        return json({ id: result.id, success: true }, { status: 201 });
+    } catch (e) {
+        return error(500, '创建分类失败: ' + e.message);
+    }
+});
+
+
+router.get('/api/admin/orders', withAuth, async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare(`
+            SELECT 
+                o.id AS order_id, o.total_amount, o.status, o.created_at, 
+                p.name AS product_name, pv.name AS variant_name
+            FROM Orders o
+            JOIN ProductVariants pv ON o.variant_id = pv.id
+            JOIN Products p ON pv.product_id = p.id
+            ORDER BY o.created_at DESC
+        `).all();
+        const formattedResults = results.map(o => ({
+            ...o,
+            product_name: `${o.product_name} - ${o.variant_name}`,
+            variant_name: undefined 
+        }));
+        return json(formattedResults);
+    } catch (e) {
+        return error(500, '获取订单失败: ' + e.message);
+    }
+});
+// END: 关键修复
+
+// 卡密管理 API (保持不变)
 router.get('/api/admin/cards', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare("SELECT * FROM Cards ORDER BY id DESC").all();
@@ -458,7 +531,9 @@ router.get('/api/admin/cards', withAuth, async (request, env) => {
         return error(500, '获取卡密列表失败: ' + e.message);
     }
 });
+
 router.post('/api/admin/cards', withAuth, handleAddCard);
+
 async function handleAddCard(request, env) {
     try {
         const { variant_id, secret, is_sold } = await request.json();
@@ -488,6 +563,7 @@ async function handleAddCard(request, env) {
         return error(500, 'Internal Server Error: ' + e.message);
     }
 }
+
 router.post('/api/admin/cards/import', withAuth, async (request, env) => {
     const { variant_id: variantId, keys } = await request.json();
     const variant_id = parseInt(variantId);
@@ -516,11 +592,74 @@ router.post('/api/admin/cards/import', withAuth, async (request, env) => {
     }
 });
 
-// (设置 API 无需改动)
-router.get('/api/admin/settings/payment', withAuth, async (request, env) => { /* ... */ });
-router.post('/api/admin/settings/payment', withAuth, async (request, env) => { /* ... */ });
-router.get('/api/admin/settings/config', withAuth, async (request, env) => { /* ... */ });
-router.post('/api/admin/settings/config', withAuth, async (request, env) => { /* ... */ });
+// 设置 API (START: 关键修复 - 恢复被折叠的代码)
+router.get('/api/admin/settings/payment', withAuth, async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
+        const settings = results.reduce((acc, row) => {
+            acc[row.key] = row.value;
+            return acc;
+        }, {});
+        return json(settings);
+    } catch (e) {
+        return error(500, '获取支付设置失败: ' + e.message);
+    }
+});
+
+router.post('/api/admin/settings/payment', withAuth, async (request, env) => {
+    const updates = await request.json();
+    try {
+        const promises = Object.entries(updates).map(([key, value]) => {
+            return env.MY_HLTX.prepare(
+                "REPLACE INTO PaymentSettings (key, value) VALUES (?1, ?2)"
+            ).bind(key, value).run();
+        });
+        await Promise.all(promises);
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
+        const newSettings = results.reduce((acc, row) => {
+            acc[row.key] = row.value;
+            return acc;
+        }, {});
+        return json({ success: true, settings: newSettings });
+    } catch (e) {
+        return error(500, '保存支付设置失败: ' + e.message);
+    }
+});
+
+router.get('/api/admin/settings/config', withAuth, async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM Configurations").all();
+        const configurations = results.reduce((acc, row) => {
+            acc[row.key] = row.value;
+            return acc;
+        }, {});
+        return json(configurations);
+    } catch (e) {
+        return error(500, '获取通用配置失败: ' + e.message);
+    }
+});
+
+router.post('/api/admin/settings/config', withAuth, async (request, env) => {
+    const updates = await request.json();
+    try {
+        const promises = Object.entries(updates).map(([key, value]) => {
+            return env.MY_HLTX.prepare(
+                "REPLACE INTO Configurations (key, value) VALUES (?1, ?2)"
+            ).bind(key, value).run();
+        });
+        await Promise.all(promises);
+        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM Configurations").all();
+        const newConfigurations = results.reduce((acc, row) => {
+            acc[row.key] = row.value;
+            return acc;
+        }, {});
+        return json({ success: true, configurations: newConfigurations });
+    } catch (e) {
+        return error(500, '保存通用配置失败: ' + e.message);
+    }
+});
+// END: 关键修复
+
 
 // --- 静态文件和路由处理 ---
 router.all('*', (request, env) => env.ASSETS.fetch(request));
