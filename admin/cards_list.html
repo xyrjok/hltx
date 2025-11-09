@@ -89,7 +89,7 @@
                         </thead>
                         <tbody id="card-list-body">
                             <tr><td colspan="7" class="text-center">正在加载卡密...</td></tr>
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
                 
@@ -139,14 +139,21 @@
                 </div>
                 <div class="modal-body">
                     <form id="addCardForm">
+                        
                         <div class="mb-3">
-                            <label for="variantSelect" class="form-label">所属商品 (规格)</label>
-                            <select class="form-select" id="variantSelect" required>
-                                <option value="">正在加载商品规格...</option>
+                            <label for="productSelect" class="form-label">所属商品</label>
+                            <select class="form-select" id="productSelect" required>
+                                <option value="">正在加载商品...</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="cardSecret" class="form-label">卡密</label>
+                            <label for="variantSelect" class="form-label">所属商品规格</label>
+                            <select class="form-select" id="variantSelect" required disabled>
+                                <option value="">请先选择商品</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cardSecret" class="form-label">卡密 (含预选信息)</label>
                             <textarea class="form-control" id="cardSecret" rows="3" required placeholder="粘贴卡密，格式: 卡密信息#[预选信息]#"></textarea>
                         </div>
                         <div class="mb-3">
@@ -189,93 +196,106 @@
         // 1. 加载现有卡密
         async function loadCards() {
             listMessageEl.style.display = 'none';
-            // START: 修改 colspan
             cardListBodyEl.innerHTML = '<tr><td colspan="7" class="text-center">正在加载卡密...</td></tr>';
-            // END: 修改 colspan
             document.getElementById('select-all').checked = false;
             updateBulkButtons();
 
             try {
-                // 使用 adminFetch 替换 fetch
-                // _worker.js 的 SELECT * 会自动包含 preset_info
                 cardsData = await adminFetch('/api/admin/cards'); 
 
-                // --- 模拟数据增强 (保留) ---
                 if (cardsData.length > 0 && cardsData[0].card_id === undefined) {
                     cardsData = cardsData.map((card, index) => ({
                         ...card,
                         card_id: card.card_id || (index + 1),
                         card_key: card.card_key || `ABC-123-${1000 + index}`,
-                        preset_info: card.preset_info || null, // 确保模拟数据也有
+                        preset_info: card.preset_info || null, 
                         variant_id: card.variant_id || (Math.floor(Math.random() * 2) + 1),
                         product_name: card.product_name || `商品 ${card.variant_id === 1 ? 'A' : 'B'}`,
                         is_used: card.is_used || (Math.random() > 0.8 ? 1 : 0),
                         created_at: card.created_at || new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
                     }));
                 }
-                // ---------------------------------------------
                 
                 applyFiltersAndSort();
 
             } catch (error) {
-                // START: 修改 colspan
                 cardListBodyEl.innerHTML = `<tr><td colspan="7" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
-                // END: 修改 colspan
             }
         }
 
-        // START: 新增函数 - 加载商品规格到模态框
-        async function loadVariantsForModal() {
-            const select = document.getElementById('variantSelect');
-            select.innerHTML = '<option value="">正在加载商品规格...</option>';
+        // START: 逻辑修改 - 
+        
+        // (新) 函数1: 加载商品列表 (第一个下拉菜单)
+        async function loadProductsForModal() {
+            const productSelect = document.getElementById('productSelect');
+            const variantSelect = document.getElementById('variantSelect');
+            
+            productSelect.innerHTML = '<option value="">正在加载商品...</option>';
+            variantSelect.innerHTML = '<option value="">请先选择商品</option>';
+            variantSelect.disabled = true;
             
             try {
-                // 1. 获取所有商品
                 const products = await adminFetch('/api/admin/products');
                 if (!products || products.length === 0) {
-                    select.innerHTML = '<option value="">未找到商品</option>';
+                    productSelect.innerHTML = '<option value="">未找到商品</option>';
                     return;
                 }
-
-                let allVariants = [];
-                // 2. 遍历商品以获取其规格 (variants)
-                for (const product of products) {
-                    // 3. 获取单个商品详情 (依赖 _worker.js 的修改)
-                    const productDetail = await adminFetch(`/api/admin/products/${product.id}`); 
-                    
-                    if (productDetail && productDetail.variants && productDetail.variants.length > 0) {
-                        productDetail.variants.forEach(variant => {
-                            // 我们需要一个 variant.id 来对应 ProductVariants 表
-                            if (variant.id) { 
-                                allVariants.push({
-                                    id: variant.id, 
-                                    name: `${product.name} - ${variant.name}`
-                                });
-                            }
-                        });
-                    }
-                }
                 
-                // 4. 填充下拉菜单
-                select.innerHTML = '<option value="">请选择一个商品规格</option>';
-                allVariants.forEach(variant => {
+                productSelect.innerHTML = '<option value="">请选择一个商品</option>';
+                products.forEach(product => {
                     const option = document.createElement('option');
-                    option.value = variant.id;
-                    option.textContent = variant.name;
-                    select.appendChild(option);
+                    option.value = product.id;
+                    option.textContent = product.name;
+                    productSelect.appendChild(option);
                 });
-
             } catch (error) {
-                console.error('Error loading variants for modal:', error);
-                select.innerHTML = `<option value="">加载失败: ${error.message}</option>`;
+                console.error('Error loading products for modal:', error);
+                productSelect.innerHTML = `<option value="">加载失败: ${error.message}</option>`;
             }
         }
-        // END: 新增函数
 
-        // START: 新增函数 - 保存新卡密
+        // (新) 函数2: 处理商品选择变化 (加载第二个下拉菜单)
+        async function handleProductChange() {
+            const productSelect = document.getElementById('productSelect');
+            const variantSelect = document.getElementById('variantSelect');
+            const productId = productSelect.value;
+
+            if (!productId) {
+                variantSelect.innerHTML = '<option value="">请先选择商品</option>';
+                variantSelect.disabled = true;
+                return;
+            }
+
+            variantSelect.disabled = false;
+            variantSelect.innerHTML = '<option value="">正在加载规格...</option>';
+
+            try {
+                // (这依赖 _worker.js 中 GET /api/admin/products/:id 的正确实现)
+                const productDetail = await adminFetch(`/api/admin/products/${productId}`);
+                
+                if (productDetail && productDetail.variants && productDetail.variants.length > 0) {
+                    variantSelect.innerHTML = '<option value="">请选择一个规格</option>';
+                    productDetail.variants.forEach(variant => {
+                        if (variant.id) { // 必须有 variant.id
+                            const option = document.createElement('option');
+                            option.value = variant.id;
+                            option.textContent = variant.name;
+                            variantSelect.appendChild(option);
+                        }
+                    });
+                } else {
+                    variantSelect.innerHTML = '<option value="">此商品无可用规格</option>';
+                }
+            } catch (error) {
+                console.error('Error loading variants:', error);
+                variantSelect.innerHTML = `<option value="">加载规格失败</option>`;
+            }
+        }
+        
+        // (原) 函数3: 保存卡密 (此函数无需大改)
         async function saveNewCard() {
-            const variantId = document.getElementById('variantSelect').value;
-            // "secret" 包含用户粘贴的完整内容 (例如: aaa#[bbb]#)
+            // 只需确保 variantId 是从 #variantSelect 读取的
+            const variantId = document.getElementById('variantSelect').value; 
             const secret = document.getElementById('cardSecret').value.trim();
             const isSold = document.getElementById('isSold').value;
 
@@ -289,13 +309,11 @@
             }
 
             try {
-                // adminFetch (在 admin.js) 会自动 stringify 对象
-                // 后端 _worker.js (handleAddCard) 会负责解析 "secret" 字段
                 const response = await adminFetch('/api/admin/cards', {
                     method: 'POST',
                     body: { 
                         variant_id: parseInt(variantId, 10),
-                        secret: secret, // 发送完整内容，后端解析
+                        secret: secret, // 后端负责解析 (卡密信息#[预选信息]#)
                         is_sold: parseInt(isSold, 10)
                     }
                 });
@@ -319,7 +337,7 @@
                 alert(`保存失败: ${error.message}`);
             }
         }
-        // END: 新增函数
+        // END: 逻辑修改
 
         // 2. 显示卡密列表 (包含搜索、排序和过滤逻辑)
         function displayCards(cards, sortValue, searchValue) {
@@ -327,38 +345,29 @@
             const statusFilter = document.getElementById('filter-status').value;
             const searchLower = searchValue.toLowerCase();
             
-            // A. 过滤
             let filteredCards = cards.filter(card => {
-                // START: 修改搜索逻辑
                 const matchesSearch = String(card.card_key).toLowerCase().includes(searchLower) ||
                                       (card.preset_info && String(card.preset_info).toLowerCase().includes(searchLower));
-                // END: 修改搜索逻辑
                 
                 const matchesProduct = !productFilter || String(card.variant_id) === productFilter;
                 const matchesStatus = statusFilter === "" || String(card.is_used) === statusFilter;
                 return matchesSearch && matchesProduct && matchesStatus;
             });
 
-            // B. 排序 (仅支持按卡密内容或导入时间排序，但此处简化为按卡密内容)
             filteredCards.sort((a, b) => {
                 return a.card_key.localeCompare(b.card_key);
             });
 
-
             cardListBodyEl.innerHTML = '';
             
             if (filteredCards.length === 0) {
-                // START: 修改 colspan
                 cardListBodyEl.innerHTML = `<tr><td colspan="7" class="text-center">未找到匹配的卡密。</td></tr>`;
-                // END: 修改 colspan
                 return;
             }
 
             filteredCards.forEach(card => {
                 const row = document.createElement('tr');
                 
-                // START: 修改 - 添加 preset_info 
-                // (使用 <pre> 标签保留换行, <small> 使其不那么显眼)
                 const presetHtml = card.preset_info 
                     ? `<small><pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">${card.preset_info}</pre></small>` 
                     : '<span class="text-muted">无</span>';
@@ -378,7 +387,6 @@
                         </button>
                     </td>
                 `;
-                // END: 修改
                 cardListBodyEl.appendChild(row);
             });
         }
@@ -395,7 +403,6 @@
             if (!confirm(`确定要删除 ID 为 ${cardId} 的卡密吗？`)) return;
 
             try {
-                // 使用 adminFetch 替换 fetch
                 await adminFetch(`/api/admin/cards/${cardId}`, {
                     method: 'DELETE',
                 });
@@ -437,8 +444,6 @@
             if (!confirm(`确定要批量删除这 ${selectedIds.length} 个卡密吗？`)) return;
 
             try {
-                // 实际项目中应调用批量删除 API (使用 adminFetch)
-                
                 listMessageEl.textContent = `成功删除 ${selectedIds.length} 个卡密 (模拟)`;
                 listMessageEl.className = 'mt-3 text-success';
                 listMessageEl.style.display = 'block';
@@ -483,12 +488,6 @@
             const modal = bootstrap.Modal.getInstance(bulkEditModalEl) || new bootstrap.Modal(bulkEditModalEl);
 
             try {
-                // 实际项目中应调用批量编辑 API (使用 adminFetch)
-                // await adminFetch('/api/admin/cards/bulk-update', {
-                //     method: 'PUT',
-                //     body: JSON.stringify(updates)
-                // });
-                
                 modal.hide();
                 listMessageEl.textContent = `成功对 ${selectedIds.length} 个卡密执行批量编辑 (模拟)`;
                 listMessageEl.className = 'mt-3 text-success';
@@ -506,12 +505,17 @@
 
         // 页面加载时运行
         
-        // START: 添加事件监听
+        // START: 添加事件监听 (更新)
         const addCardModalEl = document.getElementById('addCardModal');
         addCardModalEl.addEventListener('show.bs.modal', function (event) {
-            // 每次打开时重新加载，以防商品有变动
-            loadVariantsForModal(); 
+            // 每次打开时重新加载商品列表
+            loadProductsForModal(); 
         });
+        
+        // 监听第一个下拉菜单的变化
+        document.getElementById('productSelect').addEventListener('change', handleProductChange);
+        
+        // 监听保存按钮点击
         document.getElementById('saveCardBtn').addEventListener('click', saveNewCard);
         // END: 添加事件监听
 
