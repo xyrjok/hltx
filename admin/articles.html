@@ -70,13 +70,12 @@
                                 <th>ID <i class="fas fa-sort-numeric-down-alt"></i></th>
                                 <th>文章标题 <i class="fas fa-sort-alpha-down"></i></th>
                                 <th>访问路径 (Slug)</th>
-                                <th>创建日期</th>
+                                <th>分类</th> <th>创建日期</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="article-list-body">
-                            <tr><td colspan="6" class="text-center">正在加载文章...</td></tr>
-                        </tbody>
+                            <tr><td colspan="7" class="text-center">正在加载文章...</td></tr> </tbody>
                     </table>
                 </div>
                 <p id="list-message" class="mt-3" style="display: none;"></p>
@@ -156,7 +155,7 @@
             articleListBodyEl.innerHTML = '';
             
             if (filteredArticles.length === 0) {
-                articleListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center">未找到匹配的文章。</td></tr>`;
+                articleListBodyEl.innerHTML = `<tr><td colspan="7" class="text-center">未找到匹配的文章。</td></tr>`; 
                 return;
             }
 
@@ -169,7 +168,7 @@
                     <td>${art.id}</td>
                     <td><strong>${art.title}</strong></td>
                     <td>/${art.slug}</td>
-                    <td>${new Date(art.created_at).toLocaleDateString()}</td>
+                    <td>${art.category_name || '<small class="text-muted">N/A</small>'}</td> <td>${new Date(art.created_at).toLocaleDateString()}</td>
                     <td class="table-actions">
                         <button class="btn button-info button-sm me-1" onclick="editArticle(${art.id})">
                             <i class="fas fa-edit"></i> 编辑
