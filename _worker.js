@@ -565,6 +565,29 @@ router.post('/api/admin/article_categories', withAuth, async (request, env) => {
         return error(500, '创建文章分类失败: ' + e.message);
     }
 });
+// (添加) 删除文章分类
+router.delete('/api/admin/article_categories/:id', withAuth, async ({ params }, env) => {
+    try {
+        // 检查 Articles 表中是否还有文章在使用此分类ID
+        const usage = await env.MY_HLTX.prepare(
+            "SELECT id FROM Articles WHERE article_category_id = ?1 LIMIT 1"
+        ).bind(params.id).first();
+
+        if (usage) {
+            return error(400, '删除失败：仍有文章在使用此分类，请先移除或修改相关文章。');
+        }
+
+        // 如果没有文章使用，则执行删除
+        await env.MY_HLTX.prepare(
+            "DELETE FROM ArticleCategories WHERE id = ?1"
+        ).bind(params.id).run();
+        
+        return json({ success: true });
+    } catch (e) {
+        return error(500, '删除文章分类失败: ' + e.message);
+    }
+});
+// --- 添加删除文章分类结束 ---
 
 // --- 添加 (文章分类 API)到这里结束 ---
 
