@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑文章 - CloudCard</title>
+    
+	<link rel="stylesheet" href="/static/bootstrap.min.css"/>
+	<link rel="stylesheet" href="/static/all.min.css"/>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
+                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
+                <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
+                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
+                <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
+                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
+                <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
+                <li class="active"><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
+        </nav>
+        
+        <main class="main-content">
+            <h1 id="page-title">新建文章</h1>
+            
+            <form id="article-form" class="admin-card p-3">
+                <div id="form-message" class="alert" style="display: none;"></div>
+
+                <div class="row">
+                    <div class="col-lg-9">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">文章标题 <span class="text-danger">*</span></label>
+                            <input type="text" id="title" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="content" class="form-label">文章内容 <span class="text-danger">*</span></label>
+                            <textarea id="content" name="content" style="height: 400px;"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3">
+                        <div class="admin-card p-3">
+                            <h5>发布</h5>
+                            <hr>
+                            <button type="submit" id="save-button" class="btn button w-100">
+                                <i class="fas fa-save"></i> 保存
+                            </button>
+                            <a href="/admin/articles.html" class="btn button-secondary w-100 mt-2">
+                                <i class="fas fa-times-circle"></i> 取消
+                            </a>
+                        </div>
+                        
+                        <div class="admin-card p-3 mt-3">
+                            <h5>属性</h5>
+                            <hr>
+                            <div class="mb-3">
+                                <label for="slug" class="form-label">访问路径 (Slug) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">/</span>
+                                    <input type="text" id="slug" class="form-control" required>
+                                </div>
+                                <small class="form-text text-muted">用于 URL，例如 /help-center</small>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="summary" class="form-label">文章摘要</label>
+                                <textarea id="summary" class="form-control" rows="4"></textarea>
+                                <small class="form-text text-muted">（可选）显示在文章列表中的简短描述</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            
+        </main>
+    </div>
+    
+	<script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/admin/auth.js"></script>
+    <script src="/admin/admin.js"></script>
+    
+    <script src="/static/tinymce/tinymce.min.js"></script>
+    <script src="/static/tinymce/langs/zh_CN.js"></script>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const articleId = urlParams.get('id');
+        const isEditing = !!articleId;
+
+        const formEl = document.getElementById('article-form');
+        const titleEl = document.getElementById('title');
+        const slugEl = document.getElementById('slug');
+        const summaryEl = document.getElementById('summary');
+        const saveButton = document.getElementById('save-button');
+        const messageEl = document.getElementById('form-message');
+
+        // 1. 初始化 TinyMCE 编辑器
+        tinymce.init({
+            selector: '#content',
+            language: 'zh_CN',
+            plugins: 'preview importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media template codesample table charmap pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount help charmap quickbars emoticons',
+            menubar: 'file edit view insert format tools table help',
+            toolbar: 'undo redo | bold italic underline strikethrough | fontfamily fontsize blocks | alignleft aligncenter alignright alignjustify | outdent indent |  numlist bullist | forecolor backcolor removeformat | pagebreak | charmap emoticons | fullscreen  preview save print | insertfile image media template link anchor codesample | ltr rtl',
+            height: 500
+        });
+
+        // 2. 加载数据 (如果是编辑模式)
+        async function loadArticleData() {
+            if (!isEditing) {
+                document.getElementById('page-title').textContent = '新建文章';
+                document.title = '新建文章 - CloudCard';
+                return;
+            }
+
+            document.getElementById('page-title').textContent = `编辑文章 (ID: ${articleId})`;
+            document.title = `编辑文章 #${articleId} - CloudCard`;
+            saveButton.disabled = true;
+
+            try {
+                // 这是您在上一步中添加到 _worker.js 的新 API
+                const data = await adminFetch(`/api/admin/articles/${articleId}`);
+                
+                titleEl.value = data.title;
+                slugEl.value = data.slug;
+                summaryEl.value = data.summary;
+                
+                // 等待 TinyMCE 初始化完成再设置内容
+                tinymce.get('content').on('init', () => {
+                    tinymce.get('content').setContent(data.content || '');
+                });
+                // 如果已初始化，则直接设置
+                if (tinymce.get('content')) {
+                     tinymce.get('content').setContent(data.content || '');
+                }
+                
+                saveButton.disabled = false;
+
+            } catch (error) {
+                showMessage(error.message, 'danger');
+            }
+        }
+
+        // 3. 提交表单 (新建或更新)
+        formEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // 获取编辑器内容
+            const content = tinymce.get('content').getContent();
+
+            const articleData = {
+                title: titleEl.value,
+                slug: slugEl.value,
+                summary: summaryEl.value,
+                content: content
+            };
+
+            if (!articleData.title || !articleData.slug || !articleData.content) {
+                showMessage('标题、访问路径 (Slug) 和文章内容 均为必填项。', 'danger');
+                return;
+            }
+
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在保存...';
+
+            try {
+                let url = '/api/admin/articles';
+                let method = 'POST'; //
+
+                if (isEditing) {
+                    // 这是您在上一步中添加到 _worker.js 的新 API
+                    url = `/api/admin/articles/${articleId}`;
+                    method = 'PUT';
+                }
+
+                await adminFetch(url, {
+                    method: method,
+                    body: articleData // adminFetch 会自动处理 JSON.stringify
+                });
+
+                showMessage(isEditing ? '文章更新成功！' : '文章创建成功！', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/admin/articles.html';
+                }, 1500);
+
+            } catch (error) {
+                showMessage(error.message, 'danger');
+                saveButton.disabled = false;
+                saveButton.innerHTML = '<i class="fas fa-save"></i> 保存';
+            }
+        });
+
+        // 4. 显示消息
+        function showMessage(msg, type = 'success') {
+            messageEl.textContent = msg;
+            messageEl.className = `alert alert-${type}`;
+            messageEl.style.display = 'block';
+            window.scrollTo(0, 0); // 滚动到顶部查看消息
+        }
+
+        // 5. 启动
+        loadArticleData();
+    </script>
+</body>
+</html>
