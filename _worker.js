@@ -351,6 +351,7 @@ router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
 });
 
 // --- 新增路由 (1/2): 获取单个商品详情 (后台管理) ---
+// START: 关键修改 - 为新增卡密功能修改
 router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     try {
         const productId = params.id;
@@ -374,6 +375,13 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
         }
         
         // (可选：如果您的旧数据依赖 ProductVariants 表，可以在此添加兼容查询)
+        // -> 针对新增卡密功能，此查询变为必须
+        if (!product.variants || product.variants.length === 0) {
+            const { results: variants } = await env.MY_HLTX.prepare(
+                "SELECT id, name, price_adjustment, stock_count FROM ProductVariants WHERE product_id = ?1"
+            ).bind(params.id).all();
+             product.variants = variants;
+        }
         
         delete product.variants_json; // 不将此原始字段发送给前端
         return json(product);
@@ -382,6 +390,7 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
         return error(500, '获取商品详情失败: ' + e.message);
     }
 });
+// END: 关键修改
 
 // --- 新增路由 (2/2): 更新商品 (后台管理) ---
 router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
@@ -569,6 +578,60 @@ router.get('/api/admin/cards', withAuth, async (request, env) => {
     }
 });
 
+// START: 添加新路由 - 新增卡密
+router.post('/api/admin/cards', withAuth, handleAddCard);
+// END: 添加新路由
+
+// START: 添加新函数 - 处理新增卡密
+async function handleAddCard(request, env) {
+    try {
+        const { variant_id, secret, is_sold } = await request.json();
+
+        if (!variant_id || !secret) {
+            return error(400, '商品规格ID和卡密内容不能为空');
+        }
+        
+        // 校验 variant_id 是否存在 (遵循 import 路由的逻辑)
+        const variant = await env.MY_HLTX.prepare("SELECT id FROM ProductVariants WHERE id = ?1").bind(variant_id).first();
+        if (!variant) return error(404, '商品规格 (Variant) 未找到');
+
+        // 将textarea中的多行卡密拆分
+        const secrets = secret.split('\n').filter(s => s.trim().length > 0);
+        if (secrets.length === 0) {
+             return error(400, '卡密内容不能为空');
+        }
+
+        const db = env.MY_HLTX;
+        const stmts = [];
+        const now = new Date().toISOString();
+        
+        for (const sec of secrets) {
+            // 遵循 import 路由的 schema (variant_id, card_key)
+            // 并添加 is_used 和 created_at
+            stmts.push(
+                db.prepare('INSERT INTO Cards (variant_id, card_key, is_used, created_at) VALUES (?, ?, ?, ?)')
+                  .bind(variant_id, sec.trim(), is_sold || 0, now)
+            );
+        }
+
+        await db.batch(stmts);
+        
+        // 遵循 import 路由的逻辑，更新 ProductVariants 的库存
+        // 只有当卡密是 "未使用" 时才增加库存
+        if ((is_sold || 0) === 0) {
+             await env.MY_HLTX.prepare(
+                "UPDATE ProductVariants SET stock_count = stock_count + ?1 WHERE id = ?2"
+            ).bind(stmts.length, variant_id).run();
+        }
+
+        return json({ success: true, count: stmts.length }, { status: 201 });
+
+    } catch (e) {
+        console.error('Error adding card:', e.message);
+        return error(500, 'Internal Server Error: ' + e.message);
+    }
+}
+// END: 添加新函数
 
 // 导入新卡密 (后台管理)
 router.post('/api/admin/cards/import', withAuth, async (request, env) => {
