@@ -339,15 +339,12 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
         const pv_map = new Map(pv_data.map(v => [v.id, v]));
         const final_variants = [];
 
-        // (尽力同步 JSON 和 DB 中的数据)
-        // (此逻辑假设 `variants_json` 至少包含了 `pv_data` 的所有条目)
         if (variants_from_json.length >= pv_data.length && variants_from_json.length > 0) {
              for (let i = 0; i < variants_from_json.length; i++) {
                  const json_variant = variants_from_json[i];
-                 // (尝试通过 `json_variant.id` 或索引 `i` 来匹配)
                  const pv_variant = (json_variant.id && pv_map.get(json_variant.id)) ? 
                                     pv_map.get(json_variant.id) : 
-                                    pv_data[i]; // (如果ID不存在或不匹配，则回退到索引匹配)
+                                    pv_data[i]; 
                  
                  if (!pv_variant) continue; 
                  
@@ -446,9 +443,8 @@ router.put('/api/admin/products/:id', withAuth, async ({ params }, env) => {
 });
 
 
-// --- 其他 Admin API (已恢复) ---
+// --- 其他 Admin API ---
 
-// START: 关键修复 - 恢复被折叠的代码
 router.get('/api/admin/articles', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare("SELECT id, title, created_at FROM Articles ORDER BY created_at DESC").all();
@@ -520,17 +516,30 @@ router.get('/api/admin/orders', withAuth, async (request, env) => {
         return error(500, '获取订单失败: ' + e.message);
     }
 });
-// END: 关键修复
 
-// 卡密管理 API (保持不变)
+// 卡密管理 API
+// START: 关键修改 - 修复 /api/admin/cards API
 router.get('/api/admin/cards', withAuth, async (request, env) => {
     try {
-        const { results } = await env.MY_HLTX.prepare("SELECT * FROM Cards ORDER BY id DESC").all();
+        // (!!!) 关键修复: 使用 JOIN 获取真实的商品和规格名称
+        const { results } = await env.MY_HLTX.prepare(
+            `SELECT 
+                c.id as card_id, c.card_key, c.preset_info, c.is_used, 
+                c.created_at, c.variant_id,
+                p.name AS product_name, 
+                pv.name AS variant_name
+            FROM Cards c
+            LEFT JOIN ProductVariants pv ON c.variant_id = pv.id
+            LEFT JOIN Products p ON pv.product_id = p.id
+            ORDER BY c.id DESC`
+        ).all();
+        
         return json(results);
     } catch (e) {
         return error(500, '获取卡密列表失败: ' + e.message);
     }
 });
+// END: 关键修改
 
 router.post('/api/admin/cards', withAuth, handleAddCard);
 
@@ -592,7 +601,7 @@ router.post('/api/admin/cards/import', withAuth, async (request, env) => {
     }
 });
 
-// 设置 API (START: 关键修复 - 恢复被折叠的代码)
+// 设置 API
 router.get('/api/admin/settings/payment', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
@@ -658,7 +667,6 @@ router.post('/api/admin/settings/config', withAuth, async (request, env) => {
         return error(500, '保存通用配置失败: ' + e.message);
     }
 });
-// END: 关键修复
 
 
 // --- 静态文件和路由处理 ---
