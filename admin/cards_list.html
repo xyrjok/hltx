@@ -59,6 +59,9 @@
                         </select>
                     </div>
                     
+                    <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addCardModal">
+                        <i class="fas fa-plus"></i> 新增卡密
+                    </button>
                     <button id="bulk-edit-btn" class="btn button-info" onclick="openBulkEditModal()" disabled>
                         <i class="fas fa-edit"></i> 批量编辑
                     </button>
@@ -69,7 +72,7 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table class="admin-table table table-hover">
+                    <table class="admin-table table table table-hover">
                         <thead>
                             <tr>
                                 <th style="width: 1%;">
@@ -125,7 +128,42 @@
         </div>
     </div>
     
-	<script src="/static/bootstrap.bundle.min.js"></script>
+    <div class="modal fade" id="addCardModal" tabindex="-1" aria-labelledby="addCardModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCardModalLabel">新增卡密</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCardForm">
+                        <div class="mb-3">
+                            <label for="variantSelect" class="form-label">所属商品 (规格)</label>
+                            <select class="form-select" id="variantSelect" required>
+                                <option value="">正在加载商品规格...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cardSecret" class="form-label">卡密</label>
+                            <textarea class="form-control" id="cardSecret" rows="3" required placeholder="可一次性粘贴多行，每行一个卡密"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="isSold" class="form-label">是否售出</label>
+                            <select class="form-select" id="isSold">
+                                <option value="0" selected>否</option>
+                                <option value="1">是</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveCardBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/admin/auth.js"></script>
     <script src="/admin/admin.js"></script> 
 	<script>
@@ -176,6 +214,101 @@
                 cardListBodyEl.innerHTML = `<tr><td colspan="6" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> ${error.message}</td></tr>`;
             }
         }
+
+        // START: 新增函数 - 加载商品规格到模态框
+        async function loadVariantsForModal() {
+            const select = document.getElementById('variantSelect');
+            select.innerHTML = '<option value="">正在加载商品规格...</option>';
+            
+            try {
+                // 1. 获取所有商品
+                const products = await adminFetch('/api/admin/products');
+                if (!products || products.length === 0) {
+                    select.innerHTML = '<option value="">未找到商品</option>';
+                    return;
+                }
+
+                let allVariants = [];
+                // 2. 遍历商品以获取其规格 (variants)
+                for (const product of products) {
+                    // 3. 获取单个商品详情 (依赖 _worker.js 的修改)
+                    const productDetail = await adminFetch(`/api/admin/products/${product.id}`); 
+                    
+                    if (productDetail && productDetail.variants && productDetail.variants.length > 0) {
+                        productDetail.variants.forEach(variant => {
+                            // 我们需要一个 variant.id 来对应 ProductVariants 表
+                            if (variant.id) { 
+                                allVariants.push({
+                                    id: variant.id, 
+                                    name: `${product.name} - ${variant.name}`
+                                });
+                            }
+                        });
+                    }
+                }
+                
+                // 4. 填充下拉菜单
+                select.innerHTML = '<option value="">请选择一个商品规格</option>';
+                allVariants.forEach(variant => {
+                    const option = document.createElement('option');
+                    option.value = variant.id;
+                    option.textContent = variant.name;
+                    select.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error loading variants for modal:', error);
+                select.innerHTML = `<option value="">加载失败: ${error.message}</option>`;
+            }
+        }
+        // END: 新增函数
+
+        // START: 新增函数 - 保存新卡密
+        async function saveNewCard() {
+            const variantId = document.getElementById('variantSelect').value;
+            const secret = document.getElementById('cardSecret').value.trim();
+            const isSold = document.getElementById('isSold').value;
+
+            if (!variantId) {
+                alert('请选择一个商品规格');
+                return;
+            }
+            if (!secret) {
+                alert('卡密内容不能为空');
+                return;
+            }
+
+            try {
+                // adminFetch (在 admin.js) 会自动 stringify 对象
+                const response = await adminFetch('/api/admin/cards', {
+                    method: 'POST',
+                    body: { 
+                        variant_id: parseInt(variantId, 10),
+                        secret: secret, // 后端将处理多行
+                        is_sold: parseInt(isSold, 10)
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`新增卡密成功: ${result.count} 张`);
+                    
+                    const modalEl = document.getElementById('addCardModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+                    
+                    document.getElementById('addCardForm').reset();
+                    loadCards(); // 刷新卡密列表
+                } else {
+                    const error = await response.json();
+                    alert(`保存失败: ${error.message}`);
+                }
+            } catch (error) {
+                console.error('Error saving new card:', error);
+                alert(`保存失败: ${error.message}`);
+            }
+        }
+        // END: 新增函数
 
         // 2. 显示卡密列表 (包含搜索、排序和过滤逻辑)
         function displayCards(cards, sortValue, searchValue) {
@@ -345,6 +478,16 @@
 
 
         // 页面加载时运行
+        
+        // START: 添加事件监听
+        const addCardModalEl = document.getElementById('addCardModal');
+        addCardModalEl.addEventListener('show.bs.modal', function (event) {
+            // 每次打开时重新加载，以防商品有变动
+            loadVariantsForModal(); 
+        });
+        document.getElementById('saveCardBtn').addEventListener('click', saveNewCard);
+        // END: 添加事件监听
+
         loadCards();
     </script>
 </body>
