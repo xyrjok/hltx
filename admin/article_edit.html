@@ -25,7 +25,8 @@
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
                 <li><a href="/admin/payment_settings.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
                 <li class="active"><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
-                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
+                <li class="submenu-item"><a href="/admin/article_categories.html">文章分类</a></li> 
+				<li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
             <button id="logout-button" class="button button-secondary">
                 <i class="fas fa-sign-out-alt"></i> 退出登录
@@ -86,10 +87,11 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="category_id" class="form-label">文章分类 <i class="fas fa-folder"></i></label>
-                                <select id="category_id" class="form-select">
-                                    <option value="">— N/A (无分类) —</option>
-                                    </select>
+                                <div class="mb-3">
+                                <label for="article_category_id" class="form-label">文章分类 <i class="fas fa-folder"></i></label> 
+								<select id="article_category_id" class="form-select"> 
+									<option value="">— N/A (无分类) —</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -116,7 +118,7 @@
         const slugEl = document.getElementById('slug');
         const summaryEl = document.getElementById('summary');
 		const image_urlEl = document.getElementById('image_url'); 
-        const categoryEl = document.getElementById('category_id');
+        const categoryEl = document.getElementById('article_category_id');
         const saveButton = document.getElementById('save-button');
         const messageEl = document.getElementById('form-message');
 
@@ -133,7 +135,7 @@
         async function loadCategories() {
             try {
                 // 这个 API 路由在您的 _worker.js 中已经存在
-                const categories = await adminFetch('/api/admin/categories'); 
+				const categories = await adminFetch('/api/admin/article_categories');
                 
                 categories.forEach(cat => {
                     const option = document.createElement('option');
@@ -169,7 +171,7 @@
                 slugEl.value = data.slug;
                 summaryEl.value = data.summary;
 				image_urlEl.value = data.image_url || ''; 
-                categoryEl.value = data.category_id ||
+                categoryEl.value = data.article_category_id || '';
                 
                 // 等待 TinyMCE 初始化完成再设置内容
                 tinymce.get('content').on('init', () => {
@@ -199,7 +201,7 @@
                 slug: slugEl.value,
                 summary: summaryEl.value,
 				image_url: image_urlEl.value || '', 
-                category_id: categoryEl.value ? parseInt(categoryEl.value) : null, 
+                article_category_id: categoryEl.value ? parseInt(categoryEl.value) : null,
                 content: content
             };
 
