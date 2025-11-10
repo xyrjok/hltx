@@ -20,36 +20,32 @@
         <div class="payment-container">
             <h1 class="section-title">安全支付</h1>
 
-            <!-- 订单创建中 -->
             <div id="loading-order" class="payment-status">
                 <div class="spinner"></div>
                 <h2>正在创建订单...</h2>
                 <p>请稍候，正在为您生成支付信息。</p>
             </div>
 
-            <!-- 支付中 -->
             <div id="payment-processing" class="payment-status" style="display: none;">
                 <h2 id="order-product-name">商品名称</h2>
                 <p id="order-amount" class="order-amount">￥--.--</p>
                 <div id="qr-code-container">
-                    <img id="qr-code-img" src="https://placehold.co/200x200/ffffff/000000?text=QR+Code" alt="支付二维码">
+                    <img id="qr-code-img" alt="支付二维码">
                 </div>
                 <h3>请扫码支付</h3>
                 <p id="payment-status-message">订单将在支付成功后自动完成。</p>
                 <div class="spinner"></div>
             </div>
 
-            <!-- 支付成功 -->
             <div id="payment-success" class="payment-status" style="display: none;">
                 <h2>🎉 支付成功！</h2>
                 <p>感谢您的购买，您的卡密信息如下：</p>
                 <div id="delivered-card" class="card-secret">
-                    <!-- 卡密将显示在这里 -->
-                </div>
-                <a href="/" class="button button-primary">返回首页</a>
+                    </div>
+                <button id="copy-card-button" class="button button-secondary" style="margin-top: 1rem;">复制卡密</button>
+                <a href="/" class="button button-primary" style="margin-top: 0.5rem;">返回首页</a>
             </div>
 
-            <!-- 支付失败 -->
             <div id="payment-error" class="payment-status" style="display: none;">
                 <h2>支付失败</h2>
                 <p id="error-message-content">创建订单失败，请重试。</p>
@@ -85,14 +81,35 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
+            // [修改] 也允许通过 order_id 返回页面
             const variantId = params.get('variant_id');
+            const orderId = params.get('order_id');
 
-            if (!variantId) {
-                showError('未找到商品规格，无法创建订单。');
+            if (variantId) {
+                createOrder(variantId);
+            } else if (orderId) {
+                // 如果是从支付网关 return_url 返回的
+                showStatus('processing');
+                // 立即开始轮询
+                pollOrderStatus(orderId);
+                // (可以尝试从 /api/orders/:id 获取商品名称和金额，但为简单起见，仅轮询)
+            } else {
+                showError('未找到商品或订单信息，无法支付。');
                 return;
             }
             
-            createOrder(variantId);
+            // 复制按钮逻辑
+            const copyButton = document.getElementById('copy-card-button');
+            copyButton.addEventListener('click', () => {
+                const cardText = document.getElementById('delivered-card').textContent;
+                navigator.clipboard.writeText(cardText).then(() => {
+                    copyButton.textContent = '已复制!';
+                    setTimeout(() => { copyButton.textContent = '复制卡密'; }, 2000);
+                }).catch(err => {
+                    console.error('复制失败: ', err);
+                    copyButton.textContent = '复制失败';
+                });
+            });
         });
 
         function showError(message) {
@@ -109,25 +126,32 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ variant_id: variantId })
                 });
+                
+                const order = await response.json();
 
                 if (!response.ok) {
-                    throw new Error('创建订单失败');
+                    throw new Error(order.message || '创建订单失败');
                 }
 
-                const order = await response.json();
-                
-                // 显示支付信息
                 showStatus('processing');
                 document.getElementById('order-product-name').textContent = order.product_name;
                 document.getElementById('order-amount').textContent = `￥${order.total_amount.toFixed(2)}`;
                 
-                // 在模拟 API 中，qr_code_url 只是一个占位符
-                // 在真实 API 中，这里会是真实的二维码数据或 URL
-                if(order.qr_code_url) {
-                    document.getElementById('qr-code-img').src = order.qr_code_url;
+                // [修改] 处理 payment_url (来自 Stripe 或聚合支付)
+                if (order.payment_url) {
+                    // 如果是二维码图片 URL (或 base64 data URI)
+                    document.getElementById('qr-code-img').src = order.payment_url;
+                } else if (order.qr_code_content) {
+                    // 如果是二维码内容 (需要一个库来生成，这里仅作演示)
+                    // 假设 qr_code_content 是一个 data URI
+                    document.getElementById('qr-code-img').src = order.qr_code_content;
+                    console.log("正在使用 qr_code_content");
+                } else {
+                    showError('未能获取支付信息，请重试。');
+                    return;
                 }
                 
-                // 2. 开始轮询订单状态
+                // 2. 开始轮询订单状态 (此函数保持不变)
                 pollOrderStatus(order.order_id);
 
             } catch (error) {
@@ -136,9 +160,14 @@
             }
         }
 
-        // 2. 轮询订单状态
+        // 2. 轮询订单状态 (保持不变)
         function pollOrderStatus(orderId) {
-            const interval = setInterval(async () => {
+            // (确保不会重复启动轮询)
+            if (window.pollingInterval) {
+                clearInterval(window.pollingInterval);
+            }
+            
+            const poll = async () => {
                 try {
                     const response = await fetch(`/api/orders/${orderId}`);
                     if (!response.ok) return; // 继续轮询
@@ -147,20 +176,34 @@
 
                     if (order.status === 'paid') {
                         // 支付成功
-                        clearInterval(interval);
+                        clearInterval(window.pollingInterval);
+                        window.pollingInterval = null;
+                        
                         showStatus('success');
                         document.getElementById('delivered-card').textContent = order.delivered_card;
+                        
+                        if (order.preset_info) {
+                            const presetEl = document.createElement('div');
+                            presetEl.className = 'card-preset-info';
+                            presetEl.textContent = `预设信息: ${order.preset_info}`;
+                            document.getElementById('delivered-card').after(presetEl);
+                        }
+                        
                     } else if (order.status === 'failed') {
                         // 支付失败
-                        clearInterval(interval);
+                        clearInterval(window.pollingInterval);
+                        window.pollingInterval = null;
                         showError('订单已关闭或支付失败。');
                     }
                     // 如果是 'pending'，则不做任何事，继续轮询
                 } catch (error) {
                     console.error('Poll status error:', error);
-                    // 发生网络错误时继续轮询
+                    // 发生网络错误时也继续轮询
                 }
-            }, 3000); // 每 3 秒查询一次
+            };
+            
+            poll(); // 立即执行一次
+            window.pollingInterval = setInterval(poll, 3000); // 每 3 秒查询一次
         }
     </script>
 </body>
