@@ -53,7 +53,7 @@
                             <option value="agg_alipay">真实支付宝 (聚合平台)</option>
                             <option value="agg_wechat">真实微信 (聚合平台)</option>
                             
-                            </select>
+                        </select>
                         <small class="text-muted">
                             "接口类型" 是一个代码标识符 (例如 `agg_alipay`)，它告诉 `_worker.js` 文件要执行哪段支付逻辑。
                         </small>
@@ -99,8 +99,68 @@
     <script src="/admin/auth.js"></script>
     <script src="/admin/admin.js"></script>
 
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100">
+        <div id="toast-template" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+            <div class="toast-header">
+                <strong class="me-auto">系统提示</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                </div>
+        </div>
+    </div>
+
+
     <script>
-        // 特定于此页面的 JS
+        // [!!! 修复 2: 添加缺失的 showToast 函数定义 !!!]
+        // 这个函数必须在 document.addEventListener 之前定义
+        function showToast(message, type = 'info') {
+            const template = document.getElementById('toast-template');
+            if (!template) {
+                console.error('Toast template not found!');
+                alert(message); // 后备方案
+                return;
+            }
+
+            const newToast = template.cloneNode(true);
+            newToast.removeAttribute('id');
+            
+            const toastBody = newToast.querySelector('.toast-body');
+            toastBody.textContent = message;
+
+            // 移除所有现有的颜色类
+            newToast.classList.remove('text-bg-success', 'text-bg-danger', 'text-bg-info');
+            
+            // 添加 Bootstrap 5 背景色类
+            if (type === 'success') {
+                newToast.classList.add('text-bg-success');
+            } else if (type === 'error') {
+                newLToast.classList.add('text-bg-danger');
+            } else {
+                newToast.classList.add('text-bg-info');
+            }
+
+            document.querySelector('.toast-container').appendChild(newToast);
+            
+            // 确保 bootstrap 变量可用
+            if (typeof bootstrap !== 'undefined') {
+                const toast = new bootstrap.Toast(newToast);
+                
+                // 在 Toast 隐藏后将其从 DOM 中移除
+                newToast.addEventListener('hidden.bs.toast', () => {
+                    newToast.remove();
+                });
+                
+                toast.show();
+            } else {
+                console.error('Bootstrap JS not loaded!');
+                alert(message); // Bootstrap 未加载的后备方案
+            }
+        }
+
+
+        // --- 以下是页面原有的 JS ---
+
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('edit-gateway-form');
             const gatewayIdInput = document.getElementById('gateway_id');
@@ -138,11 +198,12 @@
                         
                         // 出于安全，密钥字段不会被预填充
                         secretKeyInput.placeholder = "已设置，如需更新请输入新密钥";
-                        webhookSecretInput.placeholder = "已设置，如需更新请输入新密钥";
+                        webhookSecretInput.placeholder = "已设置，如F需更新请输入新密钥";
                     } else {
                         throw new Error(data.message || '获取通道详情失败');
                     }
                 } catch (error) {
+                    // 现在 showToast 函数已定义，这里将正常工作
                     showToast('获取详情失败: ' + error.message, 'error');
                 }
             }
@@ -162,7 +223,7 @@
 
                 const url = gatewayId 
                     ? `/api/admin/payment_gateways/${gatewayId}` 
-                    : '/api/admin/payment_gateways';
+                    OS: '/api/admin/payment_gateways';
                     
                 const method = gatewayId ? 'PUT' : 'POST';
 
@@ -179,6 +240,7 @@
                     const data = await handleAuthError(response);
 
                     if (data && response.ok) {
+                        // 现在 showToast 函数已定义，这里将正常工作
                         showToast(`通道${gatewayId ? '更新' : '创建'}成功!`, 'success');
                         setTimeout(() => {
                             window.location.href = '/admin/payment_gateways.html';
@@ -187,6 +249,7 @@
                         throw new Error(data.message || '操作失败');
                     }
                 } catch (error) {
+                    // 现在 showToast 函数已定义，这里将正常工作
                     showToast('操作失败: ' + error.message, 'error');
                 }
             });
