@@ -1,7 +1,7 @@
 // _worker.js: Cloudflare Worker D1 数据库集成版本
-// [!!!] 此版本集成了真实支付逻辑，移除了所有支付相关的伪代码。
-// 它依赖于一个“非托管型”支付网关（您自己部署在 Fly.io 或其他地方）。
-// 它使用 Web Crypto API (Workers 自带) 来验证 Webhook 签名。
+// [!!!] 架构已升级为“多支付通道”模型 [!!!]
+// 它现在依赖 D1 中的 'PaymentGateways' 表。
+// 旧的 'PaymentSettings' 表和相关 API 已被移除。
 
 import { Router } from 'itty-router';
 
@@ -23,79 +23,108 @@ function parseCardSecret(fullSecret) {
     return { secret: fullSecret.trim(), preset: null };
 }
 
-// --- [!!! 关键修改 !!!] 支付网关辅助函数 (真实实现) ---
+// --- [!!! 替换 !!!] 支付网关辅助函数 ---
 
-// 1. 从 D1 获取所有支付设置
-async function getPaymentSettings(env) {
+// 1. [!!!] (新) 获取特定网关的设置
+// 它现在从新的 PaymentGateways 表中读取特定 ID 的设置
+async function getGatewaySettings(env, gatewayId) {
     try {
-        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
-        return results.reduce((acc, row) => {
-            acc[row.key] = row.value;
-            return acc;
-        }, {});
+        if (!gatewayId) {
+            throw new Error("Gateway ID is required");
+        }
+        const gateway = await env.MY_HLTX.prepare(
+            "SELECT * FROM PaymentGateways WHERE id = ?1 AND is_active = 1"
+        ).bind(gatewayId).first();
+        
+        if (!gateway) {
+            throw new Error(`支付通道 (ID: ${gatewayId}) 未找到或未启用。`);
+        }
+        return gateway; // 返回包含 secret_key, merchant_id 等的对象
     } catch (e) {
         console.error("获取支付设置失败:", e);
-        return {};
+        throw e;
     }
 }
 
-// 2. [!!! 关键修改 !!!] 创建支付会话 (真实 API 调用)
-// 此函数调用您部署在 Fly.io 上的“非托管型”网关
+// 2. [!!! 替换 !!!] 创建支付会话 (真实 API 调用)
+// 此函数现在接收一个包含所有密钥的 settings 对象
 async function createPaymentSession(env, order, settings) {
     const { order_id, total_amount, product_name } = order;
 
-    // 假设我们只处理自托管的 USDT 网关
-    // (您可以扩展此逻辑以处理 settings.default_gateway 中的 Stripe 等)
+    // [!!! 关键 !!!]
+    // 根据数据库中存储的 "接口类型" 来决定调用哪个逻辑
+    const gatewayType = settings.interface_type;
     
-    const gatewayUrl = settings.crypto_gateway_url;
-    const apiKey = settings.crypto_api_key;
-    
-    if (!gatewayUrl || !apiKey) {
-        throw new Error('后台未配置“自托管网关 URL”或“网关 API 密钥”');
-    }
-
-    // [!!!] 这是对您自托管网关的真实 API 调用
-    // (请根据您的网关文档调整 /create_order 路径和 body)
-    try {
-        const response = await fetch(`${gatewayUrl}/create_order`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // 使用 API Key 验证 Worker -> Gateway 的请求
-                'Authorization': `Bearer ${apiKey}` 
-            },
-            body: JSON.stringify({
-                order_id: order_id,         // 您的内部订单 ID
-                amount: total_amount,       // 金额
-                currency: "USD",            // (或 CNY)
-                product_name: product_name,
-                // [!!] 关键：告诉网关支付成功后通知您哪里
-                notify_url: `https://${env.WORKER_URL}/api/payment/notify/usdt_gateway`,
-                return_url: `https://${env.SITE_URL}/pay.html?order_id=${order_id}`
-            })
-        });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(`支付网关创建订单失败: ${errData.message || response.statusText}`);
+    // (这是您在 admin/payment_settings.html 中自托管网关的逻辑)
+    if (gatewayType === 'usdt_gateway') {
+        // [!!!] 注意：这里的字段名已更新，以匹配新的表单
+        // 我们假设您将自托管网关的 URL 存在 'merchant_id' 字段
+        // 将 API Key 存在 'secret_key' 字段
+        const gatewayUrl = settings.merchant_id;
+        const apiKey = settings.secret_key;
+        
+        if (!gatewayUrl || !apiKey) {
+            throw new Error('自托管网关 (USDT) URL 或 API 密钥未配置');
         }
-        
-        const data = await response.json();
-        
-        // 假设网关返回支付 URL 或二维码内容
-        return {
-            payment_url: data.payment_url,
-            qr_code_content: data.qr_code_content,
-            payment_id: data.gateway_order_id // 网关的订单 ID
-        };
-        
-    } catch (e) {
-        console.error("调用自托管网关失败:", e);
-        throw new Error(`调用支付网关失败: ${e.message}`);
+
+        try {
+            // (请根据您的网关文档调整 /create_order 路径和 body)
+            const response = await fetch(`${gatewayUrl}/create_order`, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 使用 API Key 验证 Worker -> Gateway 的请求
+                    'Authorization': `Bearer ${apiKey}` 
+                },
+                body: JSON.stringify({
+                    order_id: order_id,         // 您的内部订单 ID
+                    amount: total_amount,       // 金额
+                    currency: "USD",            // (或 CNY)
+                    product_name: product_name,
+                    // [!!] 关键：告诉网关支付成功后通知您哪里 (使用通道ID)
+                    notify_url: `https://${env.WORKER_URL}/api/payment/notify/${settings.id}`,
+                    return_url: `https://${env.SITE_URL}/pay.html?order_id=${order_id}`
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(`支付网关创建订单失败: ${errData.message || response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            // 假设网关返回支付 URL 或二维码内容
+            return {
+                payment_url: data.payment_url,
+                qr_code_content: data.qr_code_content,
+                payment_id: data.gateway_order_id // 网关的订单 ID
+            };
+            
+        } catch (e) {
+            console.error("调用自托管网关失败:", e);
+            throw new Error(`调用支付网关失败: ${e.message}`);
+        }
     }
+    
+    if (gatewayType === 'alipay' || gatewayType === 'wechatpay' || gatewayType === 'stripe') {
+        // ... 在这里添加 Stripe, 支付宝等的真实 API 调用逻辑 ...
+        // ... 使用 settings.merchant_id, settings.secret_key ...
+        
+        // --- 模拟返回，直到您接入真实 API ---
+        console.log(`[模拟支付] 为订单 ${order_id} 创建 ${gatewayType} 支付，金额 ${total_amount}`);
+        return {
+            payment_url: `https://placehold.co/200x200/ffffff/000000?text=Scan+(${gatewayType})+to+Pay+${total_amount}`,
+            qr_code_content: null,
+            payment_id: `MOCK-${Date.now()}`
+        };
+    }
+
+    throw new Error(`不支持的支付接口类型: ${gatewayType}`);
 }
 
-// 3. [!!! 关键新增 !!!] Webhook 签名验证
+
+// 3. [!!! 新增 !!!] Webhook 签名验证
 // 使用 Web Crypto API 验证 HMAC-SHA256 签名
 async function verifyWebhookSignature(secret, body, signatureHeader) {
     if (!secret || !body || !signatureHeader) {
@@ -113,6 +142,7 @@ async function verifyWebhookSignature(secret, body, signatureHeader) {
         );
 
         // 2. 准备签名 (假设签名是 Hex 编码的)
+        // (如果网关使用 Base64，请修改此处的解码)
         const signatureBytes = Uint8Array.from(signatureHeader.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
         
         // 3. 准备数据
@@ -136,7 +166,6 @@ async function verifyWebhookSignature(secret, body, signatureHeader) {
 
 // --- 认证中间件 ---
 const withAuth = async (request, env) => {
-    // ... (保持不变) ...
     const authHeader = request.headers.get('Authorization');
     const adminToken = env.ADMIN_TOKEN;
     if (!authHeader || !adminToken) {
@@ -150,7 +179,6 @@ const withAuth = async (request, env) => {
 
 // --- API 路由 (登录) ---
 router.post('/api/auth/login', async (request, env) => {
-    // ... (保持不变) ...
     const { username, password } = await request.json();
     if (username === env.ADMIN_USER && password === env.ADMIN_PASS) {
         return json({ token: env.ADMIN_TOKEN });
@@ -160,7 +188,6 @@ router.post('/api/auth/login', async (request, env) => {
 
 // --- 公共 API 路由 ---
 
-// ... (GET /api/categories, /api/products, /api/products/:id, /api/articles, /api/articles/:slug 保持不变) ...
 // 获取所有分类
 router.get('/api/categories', async (request, env) => {
     try {
@@ -239,15 +266,32 @@ router.get('/api/articles/:slug', async ({ params }, env) => {
     }
 });
 
-// --- [关键修改] 创建订单 ---
-router.post('/api/orders', async (request, env) => {
-    const { variant_id, custom_info } = await request.json();
-    const variantIdInt = parseInt(variant_id);
+// [!!! 新增 !!!] 获取所有启用的支付通道 (公共)
+router.get('/api/payment_gateways', async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare(
+            // 出于安全，只选择 ID 和名称
+            "SELECT id, name FROM PaymentGateways WHERE is_active = 1"
+        ).all();
+        return json(results);
+    } catch (e) {
+        return error(500, '获取支付方式失败: ' + e.message);
+    }
+});
 
-    if (isNaN(variantIdInt)) return error(400, 'Invalid variant ID');
+
+// [!!! 替换 !!!] 创建订单
+router.post('/api/orders', async (request, env) => {
+    // [!!! 新增 !!!] 必须从前端接收 gateway_id
+    const { variant_id, gateway_id, custom_info } = await request.json();
+    const variantIdInt = parseInt(variant_id);
+    const gatewayIdInt = parseInt(gateway_id);
+
+    if (isNaN(variantIdInt) || isNaN(gatewayIdInt)) {
+        return error(400, '无效的商品规格ID或支付通道ID');
+    }
 
     try {
-        // ... (查询商品和规格的逻辑保持不变) ...
         const { results: variantResults } = await env.MY_HLTX.prepare(`
             SELECT 
                 pv.price_adjustment, pv.stock_count, pv.addon_price, 
@@ -268,20 +312,23 @@ router.post('/api/orders', async (request, env) => {
         const totalAmount = variant.base_price + variant.price_adjustment + (variant.addon_price || 0);
         const orderId = `D1-${Date.now()}`;
         
-        // 插入 'pending' 订单
+        // [!!! 修改 !!!] 插入订单时，同时记录 gateway_id
+        // (假设您已在 D1 中为 Orders 表添加了 payment_gateway_id 列)
         await env.MY_HLTX.prepare(`
-            INSERT INTO Orders (id, variant_id, total_amount, status)
-            VALUES (?1, ?2, ?3, 'pending')
-        `).bind(orderId, variantIdInt, totalAmount).run();
+            INSERT INTO Orders (id, variant_id, total_amount, status, payment_gateway_id)
+            VALUES (?1, ?2, ?3, 'pending', ?4)
+        `).bind(orderId, variantIdInt, totalAmount, gatewayIdInt).run();
         
-        // --- [!!! 关键修改 !!!] 调用真实支付网关 ---
+        // --- [!!! 关键修改 !!!] ---
         // 1. 准备 Worker URL 和 站点 URL (用于回调)
+        // (请确保在 Worker 环境变量中设置了 SITE_URL 和 WORKER_URL)
         const workerEnv = {
-            WORKER_URL: request.headers.get('host'),
-            SITE_URL: request.headers.get('origin')
+            WORKER_URL: request.headers.get('host'), // 或者 env.WORKER_URL
+            SITE_URL: request.headers.get('origin') // 或者 env.SITE_URL
         };
-        // 2. 获取支付设置
-        const paymentSettings = await getPaymentSettings(env);
+        // 2. [!!!] 根据 ID 获取特定网关的设置
+        const paymentSettings = await getGatewaySettings(env, gatewayIdInt);
+        
         // 3. 准备订单详情
         const orderDetails = {
             order_id: orderId,
@@ -289,7 +336,7 @@ router.post('/api/orders', async (request, env) => {
             total_amount: totalAmount,
         };
         
-        // 4. [!!!] 这是真实 API 调用，不再是伪代码
+        // 4. 调用支付会话 (现在它会使用正确的密钥)
         const paymentInfo = await createPaymentSession(workerEnv, orderDetails, paymentSettings);
         
         // 5. 更新订单的 payment_id
@@ -315,7 +362,6 @@ router.post('/api/orders', async (request, env) => {
 
 // 获取订单详情 (用于前端轮询)
 router.get('/api/orders/:id', async ({ params }, env) => {
-    // ... (保持不变, 已包含 'paid' 状态检查) ...
     try {
         const order = await env.MY_HLTX.prepare(
             "SELECT o.id, o.status, o.delivered_card, c.preset_info " +
@@ -346,44 +392,58 @@ router.get('/api/orders/:id', async ({ params }, env) => {
 });
 
 
-// --- [!!! 关键修改 !!!] 支付回调 (WEBHOOK) (真实实现) ---
-router.post('/api/payment/notify/:gateway', async ({ params, request, env }) => {
-    const gateway = params.gateway;
+// [!!! 替换 !!!] 支付回调 (WEBHOOK)
+// 网关的回调 URL 应设置为 /api/payment/notify/<gateway_id>
+router.post('/api/payment/notify/:gateway_id', async ({ params, request, env }) => {
+    const gatewayId = parseInt(params.gateway_id);
     const db = env.MY_HLTX;
+
+    if (isNaN(gatewayId)) {
+        return error(400, 'Invalid Gateway ID');
+    }
 
     try {
         // --- 1. [!!!] 验证签名 (真实实现) ---
-        const settings = await getPaymentSettings(env);
-        const secret = settings.crypto_webhook_secret; // (您在后台填写的 Webhook 密钥)
-        
-        // (假设网关在 X-Signature Header 中发送 HMAC-SHA256 签名)
-        const signatureHeader = request.headers.get('X-Signature');
+        // 根据 ID 从数据库获取该网关的 Webhook 密钥
+        const gatewaySettings = await db.prepare(
+            "SELECT webhook_secret FROM PaymentGateways WHERE id = ?1"
+        ).bind(gatewayId).first();
+
+        if (!gatewaySettings) {
+            return error(404, 'Gateway not found for webhook');
+        }
+
+        const secret = gatewaySettings.webhook_secret;
+        const signatureHeader = request.headers.get('X-Signature'); // (取决于您的网关)
         const body = await request.clone().text(); // 必须克隆才能读取 body
         
+        // (如果您的网关不提供签名，请务必删除此验证，但强烈不推荐)
         const isValid = await verifyWebhookSignature(secret, body, signatureHeader);
         
         if (!isValid) {
-            console.error(`[Webhook] 网关 ${gateway} 签名验证失败`);
+            console.error(`[Webhook] 网关 ${gatewayId} 签名验证失败`);
             return error(401, 'Invalid Signature');
         }
 
         // --- 2. 解析回调数据 (签名验证通过) ---
         const parsedBody = JSON.parse(body); // body 已经被读取为 text, 这里解析
-        console.log(`[Webhook] 收到 ${gateway} 已验证的回调:`, parsedBody);
+        console.log(`[Webhook] 收到 ${gatewayId} 已验证的回调:`, parsedBody);
         
         // (!! 这里的解析逻辑取决于您的网关 !!)
         const order_id = parsedBody.order_id; // (您在创建时传入的ID)
-        const payment_status = parsedBody.status === 'completed' ? 'success' : 'failed';
+        const payment_status = parsedBody.status === 'completed' ? 'success' : 'failed'; // (网关的状态)
 
         if (payment_status === 'success') {
             
-            // --- 3. [核心] 发放卡密 (逻辑保持不变) ---
+            // --- 3. [核心] 发放卡密 ---
             
-            const order = await db.prepare("SELECT id, variant_id, status FROM Orders WHERE id = ?1").bind(order_id).first();
+            // (确保订单的网关 ID 与回调的 ID 匹配)
+            const order = await db.prepare("SELECT id, variant_id, status FROM Orders WHERE id = ?1 AND payment_gateway_id = ?2").bind(order_id, gatewayId).first();
             if (!order) {
-                console.error(`[Webhook] 订单 ${order_id} 未找到`);
-                return error(404, 'Order not found');
+                console.error(`[Webhook] 订单 ${order_id} 未找到或网关 ID 不匹配`);
+                return error(404, 'Order not found or gateway mismatch');
             }
+
             if (order.status !== 'pending') {
                  console.log(`[Webhook] 订单 ${order_id} 状态为 ${order.status} (非 pending)，跳过。`);
                  return json({ received: true, message: "Duplicate or processed" });
@@ -400,7 +460,6 @@ router.post('/api/payment/notify/:gateway', async ({ params, request, env }) => 
                 return error(500, 'Stock unavailable after payment');
             }
             
-            // [事务] 更新数据库
             console.log(`[Webhook] 正在为订单 ${order_id} 发放卡密 (ID: ${availableCard.id})`);
             await db.batch([
                 db.prepare("UPDATE Cards SET is_used = 1, used_at = datetime('now') WHERE id = ?1").bind(availableCard.id),
@@ -414,17 +473,106 @@ router.post('/api/payment/notify/:gateway', async ({ params, request, env }) => 
         return json({ received: true });
         
     } catch (e) {
-        console.error(`[Webhook] ${gateway} 回调处理失败:`, e);
+        console.error(`[Webhook] ${gatewayId} 回调处理失败:`, e);
         return error(500, 'Webhook error: ' + e.message);
     }
 });
-// --- [新增 Webhook 结束] ---
 
 
 // --- 后台管理 API 路由 (Admin API Routes) ---
 
-// ... (所有 /api/admin/... 路由保持不变) ...
-// (GET /api/admin/products)
+// --- [!!! 新增 !!!] 支付通道管理 API (Admin API Routes) ---
+
+// (GET /api/admin/payment_gateways) - 获取列表
+router.get('/api/admin/payment_gateways', withAuth, async (request, env) => {
+    try {
+        const { results } = await env.MY_HLTX.prepare(
+            "SELECT id, name, interface_type, merchant_id, is_active FROM PaymentGateways ORDER BY id DESC"
+        ).all();
+        return json(results);
+    } catch (e) {
+        return error(500, '获取通道列表失败: ' + e.message);
+    }
+});
+
+// (POST /api/admin/payment_gateways) - 创建新通道
+router.post('/api/admin/payment_gateways', withAuth, async (request, env) => {
+    const { name, interface_type, merchant_id, secret_key, webhook_secret, is_active } = await request.json();
+    if (!name || !interface_type) return error(400, '名称和接口类型是必填项');
+    
+    try {
+        await env.MY_HLTX.prepare(
+            `INSERT INTO PaymentGateways (name, interface_type, merchant_id, secret_key, webhook_secret, is_active) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+        ).bind(name, interface_type, merchant_id || '', secret_key || '', webhook_secret || '', is_active || 0).run();
+        
+        const { id } = await env.MY_HLTX.prepare("SELECT last_insert_rowid() as id").first();
+        return json({ success: true, id: id }, { status: 201 });
+    } catch (e) {
+        return error(500, '创建通道失败: ' + e.message);
+    }
+});
+
+// (GET /api/admin/payment_gateways/:id) - 获取单个通道详情 (用于编辑页)
+router.get('/api/admin/payment_gateways/:id', withAuth, async ({ params }, env) => {
+    try {
+        const gateway = await env.MY_HLTX.prepare(
+            "SELECT id, name, interface_type, merchant_id, is_active FROM PaymentGateways WHERE id = ?1"
+        ).bind(params.id).first();
+        
+        if (!gateway) return error(404, '通道未找到');
+        // 注意：出于安全，我们不返回密钥
+        return json(gateway);
+    } catch (e) {
+        return error(500, '获取通道详情失败: ' + e.message);
+    }
+});
+
+// (PUT /api/admin/payment_gateways/:id) - 更新通道
+router.put('/api/admin/payment_gateways/:id', withAuth, async ({ params, request }, env) => {
+    const { name, interface_type, merchant_id, secret_key, webhook_secret, is_active } = await request.json();
+    if (!name || !interface_type) return error(400, '名称和接口类型是必填项');
+
+    try {
+        // 如果密钥字段为空，则保持数据库中的旧值
+        let query = `UPDATE PaymentGateways SET 
+                        name = ?1, interface_type = ?2, merchant_id = ?3, is_active = ?4 `;
+        const bindings = [name, interface_type, merchant_id || '', is_active || 0];
+
+        if (secret_key) {
+            query += `, secret_key = ?${bindings.length + 1}`;
+            bindings.push(secret_key);
+        }
+        if (webhook_secret) {
+            query += `, webhook_secret = ?${bindings.length + 1}`;
+            bindings.push(webhook_secret);
+        }
+        
+        query += ` WHERE id = ?${bindings.length + 1}`;
+        bindings.push(params.id);
+
+        await env.MY_HLTX.prepare(query).bind(...bindings).run();
+        return json({ success: true, id: params.id });
+    } catch (e) {
+        return error(500, '更新通道失败: ' + e.message);
+    }
+});
+
+// (DELETE /api/admin/payment_gateways/:id) - 删除通道
+router.delete('/api/admin/payment_gateways/:id', withAuth, async ({ params }, env) => {
+    try {
+        // (可选：检查该通道是否仍被订单使用)
+        await env.MY_HLTX.prepare("DELETE FROM PaymentGateways WHERE id = ?1").bind(params.id).run();
+        return json({ success: true });
+    } catch (e) {
+        return error(500, '删除通道失败: ' + e.message);
+    }
+});
+
+// --- [!!! 新增结束 !!!] ---
+
+
+// (商品管理)
 router.get('/api/admin/products', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare(
@@ -440,7 +588,6 @@ router.get('/api/admin/products', withAuth, async (request, env) => {
     }
 });
 
-// (POST /api/admin/products)
 router.post('/api/admin/products', withAuth, async (request, env) => {
     
     const body = await request.json();
@@ -465,7 +612,6 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
     const db = env.MY_HLTX;
 
     try {
-        // --- 1. 插入主表 Products ---
         const stmt = db.prepare(
             `INSERT INTO Products (
                 name, description, base_price, image_url, variants_json, 
@@ -486,7 +632,6 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
         const result = await db.prepare("SELECT last_insert_rowid() as id").first();
         const newProductId = result.id;
 
-        // --- 2. 插入规格表 ProductVariants ---
         const variantStmts = variants.map(variant => {
             return db.prepare(
                 `INSERT INTO ProductVariants (
@@ -512,10 +657,11 @@ router.post('/api/admin/products', withAuth, async (request, env) => {
     }
 });
 
-// (DELETE /api/admin/products/:id)
+
 router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     const db = env.MY_HLTX;
     try {
+        // (您可能还需要删除 ProductVariants 和 Cards)
         await db.prepare("DELETE FROM Products WHERE id = ?1").bind(params.id).run();
         return json({ success: true });
     } catch (e) {
@@ -523,7 +669,6 @@ router.delete('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     }
 });
 
-// (GET /api/admin/products/:id)
 router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     try {
         const productId = params.id;
@@ -581,7 +726,6 @@ router.get('/api/admin/products/:id', withAuth, async ({ params }, env) => {
     }
 });
 
-// (PUT /api/admin/products/:id)
 router.put('/api/admin/products/:id', withAuth, async ({ params, request }, env) => {
     const productId = params.id;
     const db = env.MY_HLTX;
@@ -605,7 +749,6 @@ router.put('/api/admin/products/:id', withAuth, async ({ params, request }, env)
     let variantsJson = JSON.stringify(variants);
     
     try {
-        // --- 1. 更新主表 Products ---
         const stmt = db.prepare(
             `UPDATE Products SET
                 name = ?1, description = ?2, base_price = ?3, image_url = ?4,
@@ -622,7 +765,6 @@ router.put('/api/admin/products/:id', withAuth, async ({ params, request }, env)
             isActiveInt, productId
         ).run();
 
-        // --- 2. 同步规格表 ProductVariants ---
         await db.prepare("DELETE FROM ProductVariants WHERE product_id = ?1").bind(productId).run();
         
         const variantStmts = variants.map(variant => {
@@ -651,7 +793,7 @@ router.put('/api/admin/products/:id', withAuth, async ({ params, request }, env)
 });
 
 
-// ... (GET /api/admin/articles)
+// (文章管理)
 router.get('/api/admin/articles', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare(
@@ -666,7 +808,6 @@ router.get('/api/admin/articles', withAuth, async (request, env) => {
     }
 });
 
-// ... (POST /api/admin/articles)
 router.post('/api/admin/articles', withAuth, async (request, env) => {
     const { title, slug, summary, content, image_url, article_category_id } = await request.json();
     if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
@@ -681,7 +822,6 @@ router.post('/api/admin/articles', withAuth, async (request, env) => {
     }
 });
 
-// ... (GET /api/admin/articles/:id)
 router.get('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
     try {
         const article = await env.MY_HLTX.prepare(
@@ -695,7 +835,6 @@ router.get('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
     }
 });
 
-// ... (PUT /api/admin/articles/:id)
 router.put('/api/admin/articles/:id', withAuth, async ({ params, request }, env) => {
     const { title, slug, summary, content, image_url, article_category_id } = await request.json();
     if (!title || !slug || !content) return error(400, '标题、Slug 和内容是必填项');
@@ -711,7 +850,6 @@ router.put('/api/admin/articles/:id', withAuth, async ({ params, request }, env)
     }
 });
 
-// ... (DELETE /api/admin/articles/:id)
 router.delete('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
     try {
         await env.MY_HLTX.prepare(
@@ -724,7 +862,7 @@ router.delete('/api/admin/articles/:id', withAuth, async ({ params }, env) => {
     }
 });
 
-// ... (GET /api/admin/categories)
+// (商品分类)
 router.get('/api/admin/categories', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare("SELECT * FROM Categories").all();
@@ -734,7 +872,6 @@ router.get('/api/admin/categories', withAuth, async (request, env) => {
     }
 });
 
-// ... (POST /api/admin/categories)
 router.post('/api/admin/categories', withAuth, async (request, env) => {
     const { name, slug } = await request.json();
     if (!name || !slug) return error(400, '名称和Slug是必填项');
@@ -749,7 +886,7 @@ router.post('/api/admin/categories', withAuth, async (request, env) => {
     }
 });
 
-// ... (GET /api/admin/article_categories)
+// (文章分类)
 router.get('/api/admin/article_categories', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare("SELECT * FROM ArticleCategories").all();
@@ -759,7 +896,6 @@ router.get('/api/admin/article_categories', withAuth, async (request, env) => {
     }
 });
 
-// ... (POST /api/admin/article_categories)
 router.post('/api/admin/article_categories', withAuth, async (request, env) => {
     const { name, slug } = await request.json();
     if (!name || !slug) return error(400, '名称和Slug是必填项');
@@ -774,7 +910,6 @@ router.post('/api/admin/article_categories', withAuth, async (request, env) => {
     }
 });
 
-// ... (DELETE /api/admin/article_categories/:id)
 router.delete('/api/admin/article_categories/:id', withAuth, async ({ params }, env) => {
     try {
         const usage = await env.MY_HLTX.prepare(
@@ -795,7 +930,7 @@ router.delete('/api/admin/article_categories/:id', withAuth, async ({ params }, 
     }
 });
 
-// ... (GET /api/admin/orders)
+// (订单管理)
 router.get('/api/admin/orders', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare(`
@@ -818,7 +953,7 @@ router.get('/api/admin/orders', withAuth, async (request, env) => {
     }
 });
 
-// ... (GET /api/admin/cards)
+// (卡密管理)
 router.get('/api/admin/cards', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare(
@@ -839,7 +974,6 @@ router.get('/api/admin/cards', withAuth, async (request, env) => {
     }
 });
 
-// ... (POST /api/admin/cards)
 router.post('/api/admin/cards', withAuth, handleAddCard);
 async function handleAddCard(request, env) {
     try {
@@ -871,7 +1005,6 @@ async function handleAddCard(request, env) {
     }
 }
 
-// ... (POST /api/admin/cards/import)
 router.post('/api/admin/cards/import', withAuth, async (request, env) => {
     const { variant_id: variantId, keys } = await request.json();
     const variant_id = parseInt(variantId);
@@ -900,46 +1033,7 @@ router.post('/api/admin/cards/import', withAuth, async (request, env) => {
     }
 });
 
-// ... (GET /api/admin/settings/payment)
-router.get('/api/admin/settings/payment', withAuth, async (request, env) => {
-    try {
-        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
-        const settings = results.reduce((acc, row) => {
-            acc[row.key] = row.value;
-            return acc;
-        }, {});
-        return json(settings);
-    } catch (e) {
-        return error(500, '获取支付设置失败: ' + e.message);
-    }
-});
-
-// ... (POST /api/admin/settings/payment)
-router.post('/api/admin/settings/payment', withAuth, async (request, env) => {
-    const updates = await request.json();
-    try {
-        const promises = Object.entries(updates).map(([key, value]) => {
-            // [!!!] 确保我们不会保存一个 'undefined' 值 (当密码未更改时)
-            if (value === undefined) {
-                return Promise.resolve();
-            }
-            return env.MY_HLTX.prepare(
-                "REPLACE INTO PaymentSettings (key, value) VALUES (?1, ?2)"
-            ).bind(key, value).run();
-        });
-        await Promise.all(promises);
-        const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM PaymentSettings").all();
-        const newSettings = results.reduce((acc, row) => {
-            acc[row.key] = row.value;
-            return acc;
-        }, {});
-        return json({ success: true, settings: newSettings });
-    } catch (e) {
-        return error(500, '保存支付设置失败: ' + e.message);
-    }
-});
-
-// ... (GET /api/admin/settings/config)
+// (通用配置)
 router.get('/api/admin/settings/config', withAuth, async (request, env) => {
     try {
         const { results } = await env.MY_HLTX.prepare("SELECT key, value FROM Configurations").all();
@@ -953,7 +1047,6 @@ router.get('/api/admin/settings/config', withAuth, async (request, env) => {
     }
 });
 
-// ... (POST /api/admin/settings/config)
 router.post('/api/admin/settings/config', withAuth, async (request, env) => {
     const updates = await request.json();
     try {
@@ -973,6 +1066,9 @@ router.post('/api/admin/settings/config', withAuth, async (request, env) => {
         return error(500, '保存通用配置失败: ' + e.message);
     }
 });
+
+// --- [!!! 删除 !!!] ---
+// 旧的 /api/admin/settings/payment 路由已被完全移除
 
 
 // --- 静态文件和路由处理 ---
