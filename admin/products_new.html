@@ -146,19 +146,32 @@
                         <label class="form-label d-lg-none">图片链接</label>
                         <input type="text" class="form-control variant-image-url" placeholder="http://.../img.png">
                     </div>
+                    
                     <div class="col-lg-1">
                         <label class="form-label d-lg-none">售价</label>
-...
+                        <input type="number" class="form-control variant-price" placeholder="售价" step="0.01" required>
+                    </div>
+
+                    <div class="col-lg-2">
+                        <label class="form-label d-lg-none">批发价配置</label>
+                        <input type="text" class="form-control variant-wholesale-config" placeholder="[可选] 批发价JSON">
+                    </div>
+
+                    <div class="col-lg-1">
+                        <label class="form-label d-lg-none">库存</label>
                         <input type="number" class="form-control variant-stock" placeholder="库存" readonly>
                     </div>
+                    
                     <div class="col-lg-1">
                         <label class="form-label d-lg-none">自选加价</label>
                         <input type="number" class="form-control variant-addon-price" placeholder="自选加价" step="0.01">
-                        </div>
+                    </div>
+                    
                     <div class="col-lg-1">
                         <label class="form-label d-lg-none">销量</label>
                         <input type="number" class="form-control variant-sales" placeholder="销量" readonly>
                     </div>
+                    
                     <div class="col-lg-1 text-end">
                          <label class="form-label d-lg-none">&nbsp;</label>
                         <button type="button" class="btn btn-danger btn-sm remove-variant-btn">
