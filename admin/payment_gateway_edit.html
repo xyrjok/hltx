@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>编辑支付通道 - CloudCard</title>
-    <link rel="stylesheet" href="/static/bootstrap.min.css"/>
-    <link rel="stylesheet" href="/static/all.min.css"/>
+    
+	<link rel="stylesheet" href="/static/bootstrap.min.css"/>
+	<link rel="stylesheet" href="/static/all.min.css"/>   
     <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
     <div class="admin-layout">
         <nav class="sidebar">
-             <h2>CloudCard</h2>
+            <h2>CloudCard</h2>
             <ul>
                 <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
                 <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
@@ -22,149 +23,174 @@
                 <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
                 <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
                 <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
-                <li class="active"><a href="/admin/payment_gateways.html"><i class="fas fa-money-check-alt"></i> 支付通道</a></li>
+                <li class="active"><a href="/admin/payment_gateways.html"><i class="fas fa-money-check-alt"></i> 支付设置</a></li>
                 <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
                 <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
             </ul>
-             <button id="logout-button" class="button button-secondary">
+            <button id="logout-button" class="button button-secondary">
                 <i class="fas fa-sign-out-alt"></i> 退出登录
             </button>
         </nav>
         
         <main class="main-content">
-            <h1 id="page-title">创建新通道</h1>
-            <a href="/admin/payment_gateways.html">&larr; 返回列表</a>
+            <h1>编辑支付通道</h1>
+            <p>编辑支付通道的详细信息和凭据。</p>
             
-            <div class="admin-card p-4 mt-3">
-                <form id="gateway-form">
-                    <div class="form-group mb-3">
-                        <label for="name">通道名称 (例如: 支付宝当面付)</label>
-                        <input type="text" id="name" class="form-control" required>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="interface_type">接口类型</label>
-                        <select id="interface_type" class="form-select" required>
-                            <option value="">-- 请选择 --</option>
-                            <option value="usdt_gateway">USDT 自托管网关</option>
-                            <option value="stripe">Stripe</option>
-                            <option value="alipay">支付宝 (模拟)</option>
-                            <option value="wechatpay">微信 (模拟)</option>
-                        </select>
-                        <small>这将决定后端调用哪个支付逻辑。</small>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="merchant_id">商户ID/商户号/API Key</label>
-                        <input type="text" id="merchant_id" class="form-control" placeholder="例如: 您的 Partner ID, API Key">
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="secret_key">商户KEY/密钥/API Secret</label>
-                        <input type="password" id="secret_key" class="form-control" placeholder="保持不变请留空">
-                        <small>您的 API 密钥或 Secret。</small>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="webhook_secret">商户密钥/Webhook密钥</label>
-                        <input type="password" id="webhook_secret" class="form-control" placeholder="保持不变请留空">
-                        <small>用于验证 Webhook 回调的密钥。</small>
-                    </div>
-                     <div class="form-group mb-3">
-                        <label for="is_active">状态</label>
-                        <select id="is_active" class="form-select">
-                            <option value="1">启用 (客户可见)</option>
-                            <option value="0">禁用 (客户不可见)</option>
-                        </select>
-                    </div>
+            <div class="admin-card">
+                <form id="edit-gateway-form">
+                    <input type="hidden" id="gateway_id">
                     
-                    <button type="submit" class="button mt-3">
-                        <i class="fas fa-save"></i> 保存
+                    <div class="form-group">
+                        <label for="name">通道名称</label>
+                        <input type="text" class="form-control" id="name" placeholder="例如：官方支付宝" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="interface_type">接口类型</label>
+                        <select class="form-control" id="interface_type">
+                            <option value="usdt_gateway">USDT 网关 (自托管)</option>
+                            
+                            <option value="agg_alipay">真实支付宝 (聚合平台)</option>
+                            <option value="agg_wechat">真实微信 (聚合平台)</option>
+                            
+                            </select>
+                        <small class="text-muted">
+                            "接口类型" 是一个代码标识符 (例如 `agg_alipay`)，它告诉 `_worker.js` 文件要执行哪段支付逻辑。
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="merchant_id">商户 ID (Merchant ID / URL)</label>
+                        <input type="text" class="form-control" id="merchant_id" placeholder="填写您的商户 ID 或网关 URL">
+                        <small class="text-muted">
+                            对于自托管网关，这可能是 URL。对于聚合支付，这通常是您的商户号。
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="secret_key">密钥 (Secret Key / API Key)</label>
+                        <input type="password" class="form-control" id="secret_key" placeholder="如需更新请输入新密钥，否则留空">
+                        <small class="text-muted">用于 API 调用的密钥。留空则表示不修改。</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="webhook_secret">Webhook 密钥 (Webhook Secret)</label>
+                        <input type="password" class="form-control" id="webhook_secret" placeholder="如需更新请输入新密钥，否则留空">
+                        <small class="text-muted">用于验证支付回调 (Webhook) 的密钥。留空则表示不修改。</small>
+                    </div>
+
+                    <div class="form-group form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active">
+                        <label class="form-check-label" for="is_active">激活此支付通道</label>
+                    </div>
+
+                    <button type="submit" class="button button-primary">
+                        <i class="fas fa-save"></i> 保存更改
                     </button>
-                    <p id="form-message" class="mt-3" style="display: none;"></p>
+                    <a href="/admin/payment_gateways.html" class="button button-secondary">
+                        取消
+                    </a>
                 </form>
             </div>
         </main>
     </div>
     
-    <script src="/static/bootstrap.bundle.min.js"></script>
+	<script src="/static/bootstrap.bundle.min.js"></script>
     <script src="/admin/auth.js"></script>
-    <script src="/admin/admin.js"></script> 
+    <script src="/admin/admin.js"></script>
+
     <script>
-        const form = document.getElementById('gateway-form');
-        const formMessage = document.getElementById('form-message');
-        const pageTitle = document.getElementById('page-title');
-        
-        const params = new URLSearchParams(window.location.search);
-        const gatewayId = params.get('id');
-
+        // 特定于此页面的 JS
         document.addEventListener('DOMContentLoaded', () => {
-            if (gatewayId) {
-                pageTitle.textContent = '编辑通道';
-                loadGatewayData();
-            } else {
-                pageTitle.textContent = '创建新通道';
-            }
+            const form = document.getElementById('edit-gateway-form');
+            const gatewayIdInput = document.getElementById('gateway_id');
+            const nameInput = document.getElementById('name');
+            const interfaceTypeInput = document.getElementById('interface_type');
+            const merchantIdInput = document.getElementById('merchant_id');
+            const secretKeyInput = document.getElementById('secret_key');
+            const webhookSecretInput = document.getElementById('webhook_secret');
+            const isActiveInput = document.getElementById('is_active');
             
-            form.addEventListener('submit', handleFormSubmit);
-        });
+            const params = new URLSearchParams(window.location.search);
+            const gatewayId = params.get('id');
 
-        async function loadGatewayData() {
-            try {
-                const gw = await adminFetch(`/api/admin/payment_gateways/${gatewayId}`);
-                document.getElementById('name').value = gw.name;
-                document.getElementById('interface_type').value = gw.interface_type;
-                document.getElementById('merchant_id').value = gw.merchant_id || '';
-                document.getElementById('is_active').value = gw.is_active;
-                // 密码字段不回填
-            } catch (error) {
-                formMessage.textContent = '加载通道信息失败: ' + error.message;
-                formMessage.className = 'mt-3 text-danger';
-                formMessage.style.display = 'block';
+            if (!gatewayId) {
+                // 如果没有 ID，这是“新建”模式
+                document.querySelector('h1').textContent = '创建新通道';
+            } else {
+                // 如果有 ID，这是“编辑”模式
+                gatewayIdInput.value = gatewayId;
+                fetchGatewayDetails(gatewayId);
             }
-        }
 
-        async function handleFormSubmit(e) {
-            e.preventDefault();
-            formMessage.style.display = 'none';
-
-            const payload = {
-                name: document.getElementById('name').value,
-                interface_type: document.getElementById('interface_type').value,
-                merchant_id: document.getElementById('merchant_id').value,
-                is_active: parseInt(document.getElementById('is_active').value),
-            };
-
-            // 只有在输入了新值时才发送密码
-            const secretKey = document.getElementById('secret_key').value;
-            const webhookSecret = document.getElementById('webhook_secret').value;
-            if (secretKey) payload.secret_key = secretKey;
-            if (webhookSecret) payload.webhook_secret = webhookSecret;
-
-            try {
-                const url = gatewayId ? `/api/admin/payment_gateways/${gatewayId}` : '/api/admin/payment_gateways';
-                const method = gatewayId ? 'PUT' : 'POST';
-                
-                const result = await adminFetch(url, {
-                    method: method,
-                    body: JSON.stringify(payload)
-                });
-                
-                formMessage.textContent = '保存成功！';
-                formMessage.className = 'mt-3 text-success';
-                formMessage.style.display = 'block';
-
-                if (!gatewayId) {
-                    // 如果是创建，跳转到编辑页面
-                    window.location.href = `/admin/payment_gateway_edit.html?id=${result.id}`;
-                } else {
-                    // 如果是编辑，清空密码框
-                    document.getElementById('secret_key').value = '';
-                    document.getElementById('webhook_secret').value = '';
+            async function fetchGatewayDetails(id) {
+                try {
+                    const response = await fetch(`/api/admin/payment_gateways/${id}`, {
+                        headers: { 'Authorization': `Bearer ${adminToken}` }
+                    });
+                    const data = await handleAuthError(response);
+                    
+                    if (data && response.ok) {
+                        nameInput.value = data.name;
+                        interfaceTypeInput.value = data.interface_type;
+                        merchantIdInput.value = data.merchant_id;
+                        isActiveInput.checked = data.is_active === 1;
+                        
+                        // 出于安全，密钥字段不会被预填充
+                        secretKeyInput.placeholder = "已设置，如需更新请输入新密钥";
+                        webhookSecretInput.placeholder = "已设置，如需更新请输入新密钥";
+                    } else {
+                        throw new Error(data.message || '获取通道详情失败');
+                    }
+                } catch (error) {
+                    showToast('获取详情失败: ' + error.message, 'error');
                 }
-
-            } catch (error) {
-                formMessage.textContent = '保存失败: ' + error.message;
-                formMessage.className = 'mt-3 text-danger';
-                formMessage.style.display = 'block';
             }
-        }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const payload = {
+                    name: nameInput.value,
+                    interface_type: interfaceTypeInput.value,
+                    merchant_id: merchantIdInput.value,
+                    is_active: isActiveInput.checked ? 1 : 0,
+                    // 只有在用户输入了新值时才发送密钥
+                    ...(secretKeyInput.value && { secret_key: secretKeyInput.value }),
+                    ...(webhookSecretInput.value && { webhook_secret: webhookSecretInput.value }),
+                };
+
+                const url = gatewayId 
+                    ? `/api/admin/payment_gateways/${gatewayId}` 
+                    : '/api/admin/payment_gateways';
+                    
+                const method = gatewayId ? 'PUT' : 'POST';
+
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${adminToken}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await handleAuthError(response);
+
+                    if (data && response.ok) {
+                        showToast(`通道${gatewayId ? '更新' : '创建'}成功!`, 'success');
+                        setTimeout(() => {
+                            window.location.href = '/admin/payment_gateways.html';
+                        }, 1000);
+                    } else {
+                        throw new Error(data.message || '操作失败');
+                    }
+                } catch (error) {
+                    showToast('操作失败: ' + error.message, 'error');
+                }
+            });
+        });
     </script>
 </body>
 </html>
