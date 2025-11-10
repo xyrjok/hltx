@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支付通道 - CloudCard</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/static/all.min.css"/>
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="sidebar">
+            <h2>CloudCard</h2>
+            <ul>
+                <li><a href="/admin/dashboard.html"><i class="fas fa-tachometer-alt"></i> 仪表盘</a></li>
+                <li><a href="/admin/orders.html"><i class="fas fa-shopping-cart"></i> 订单列表</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-box-open"></i> 商品管理</a></li>
+                <li class="submenu-item"><a href="/admin/categories.html">商品分类</a></li>
+                <li class="submenu-item"><a href="/admin/products.html">商品列表</a></li>
+                <li class="submenu-item"><a href="/admin/products_new.html">新建商品</a></li>
+                <li class="submenu-title"><a href="#"><i class="fas fa-key"></i> 卡密管理</a></li>
+                <li class="submenu-item"><a href="/admin/cards_list.html">卡密列表</a></li>
+                <li class="submenu-item"><a href="/admin/cards_import.html">导入/导出卡密</a></li>
+                
+                <li class="active"><a href="/admin/payment_gateways.html"><i class="fas fa-money-check-alt"></i> 支付通道</a></li>
+                
+                <li><a href="/admin/articles.html"><i class="fas fa-file-alt"></i> 文章管理</a></li>
+                <li><a href="/admin/config.html"><i class="fas fa-cogs"></i> 配置</a></li>
+            </ul>
+            <button id="logout-button" class="button button-secondary">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </button>
+        </nav>
+        
+        <main class="main-content">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1>支付通道</h1>
+                <a href="/admin/payment_gateway_edit.html" class="button">
+                    <i class="fas fa-plus"></i> 创建通道
+                </a>
+            </div>
+
+            <div class="admin-card">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>通道名称</th>
+                            <th>接口类型</th>
+                            <th>商户号 (部分)</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gateways-list">
+                        <tr><td colspan="6" class="text-center">正在加载...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="/admin/auth.js"></script>
+    <script src="/admin/admin.js"></script> 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGateways();
+        });
+
+        async function loadGateways() {
+            const listEl = document.getElementById('gateways-list');
+            try {
+                const gateways = await adminFetch('/api/admin/payment_gateways');
+                if (gateways.length === 0) {
+                    listEl.innerHTML = '<tr><td colspan="6" class="text-center">尚未创建任何支付通道。</td></tr>';
+                    return;
+                }
+                
+                listEl.innerHTML = gateways.map(gw => `
+                    <tr>
+                        <td>${gw.id}</td>
+                        <td>${escapeHTML(gw.name)}</td>
+                        <td><span class="badge bg-secondary">${escapeHTML(gw.interface_type)}</span></td>
+                        <td>${gw.merchant_id ? escapeHTML(gw.merchant_id.substring(0, 8)) + '...' : 'N/A'}</td>
+                        <td>
+                            ${gw.is_active ? '<span class="badge bg-success">已启用</span>' : '<span class="badge bg-danger">已禁用</span>'}
+                        </td>
+                        <td>
+                            <a href="/admin/payment_gateway_edit.html?id=${gw.id}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-edit"></i> 编辑
+                            </a>
+                            <button class="btn btn-sm btn-danger" onclick="deleteGateway(${gw.id})">
+                                <i class="fas fa-trash"></i> 删除
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                listEl.innerHTML = `<tr><td colspan="6" class="text-center text-danger">加载失败: ${error.message}</td></tr>`;
+            }
+        }
+        
+        async function deleteGateway(id) {
+            if (!confirm('确定要删除这个支付通道吗？此操作不可撤销。')) {
+                return;
+            }
+            try {
+                await adminFetch(`/api/admin/payment_gateways/${id}`, { method: 'DELETE' });
+                loadGateways();
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
