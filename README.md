@@ -81,9 +81,14 @@
 );</code></pre>
 
 <p>--8. 支付配置 </p>
-<pre class="language-sql"><code>CREATE TABLE PaymentSettings (     
-    key TEXT PRIMARY KEY NOT NULL,     
-    value TEXT
+<pre class="language-sql"><code>CREATE TABLE PaymentGateways (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL, 
+    interface_type TEXT NOT NULL,
+    merchant_id TEXT, 
+    secret_key TEXT, 
+    webhook_secret TEXT,
+    is_active INTEGER DEFAULT 0 
 );</code></pre>
 
 <p>--9. 系统配置（通用设置） </p>
