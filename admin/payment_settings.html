@@ -53,14 +53,61 @@
                              <div class="form-group">
                                 <label for="default_gateway">默认支付网关</label>
                                 <select id="default_gateway" class="form-select">
+                                    <option value="usdt_gateway">USDT 自托管网关</option>
+                                    <option value="stripe">Stripe (国际)</option>
                                     <option value="alipay">支付宝 (Alipay)</option>
                                     <option value="wechatpay">微信支付 (WechatPay)</option>
                                 </select>
                             </div>
                          </div>
                     </div>
-
-
+                    
+                    <h3 style="margin-top: 1.5rem;"><i class="fas fa-coins"></i> Crypto/USDT (自托管非托管型)</h3>
+                    <p class="text-muted">用于连接您自己部署在 Fly.io 或其他容器服务上的开源网关 (如 BitHide, SHKeeper)。</p>
+                    <div class="row">
+                         <div class="col-12">
+                             <div class="form-group">
+                                <label for="crypto_gateway_url">自托管网关 URL</label>
+                                <input type="text" id="crypto_gateway_url" class="form-control" placeholder="例如: https://my-gateway.fly.dev">
+                            </div>
+                         </div>
+                         <div class="col-md-6">
+                             <div class="form-group">
+                                <label for="crypto_api_key">网关 API 密钥</label>
+                                <input type="password" id="crypto_api_key" class="form-control" value="********" placeholder="输入新的 API Key">
+                                <small>用于 Worker 向您的网关发送请求 (Worker -> Gateway)</small>
+                            </div>
+                         </div>
+                         <div class="col-md-6">
+                             <div class="form-group">
+                                <label for="crypto_webhook_secret">网关 Webhook 密钥</label>
+                                <input type="password" id="crypto_webhook_secret" class="form-control" value="********" placeholder="输入新的 Webhook Secret">
+                                <small>用于 Worker 验证您的网关的回调 (Gateway -> Worker)</small>
+                            </div>
+                         </div>
+                    </div>
+                    <h3 style="margin-top: 1.5rem;"><i class="fab fa-stripe"></i> Stripe (国际)</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="stripe_public_key">Publishable Key</label>
+                                <input type="text" id="stripe_public_key" class="form-control" placeholder="pk_test_...">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="stripe_secret_key">Secret Key</label>
+                                <input type="password" id="stripe_secret_key" class="form-control" value="********" placeholder="sk_test_...">
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-group">
+                                <label for="stripe_webhook_secret">Webhook Secret (用于验证回调)</label>
+                                <input type="password" id="stripe_webhook_secret" class="form-control" value="********" placeholder="whsec_...">
+                            </div>
+                        </div>
+                    </div>
+                    
                     <h3 style="margin-top: 1.5rem;"><i class="fab fa-alipay"></i> 支付宝配置 (模拟)</h3>
                     <div class="row">
                         <div class="col-md-6">
@@ -73,7 +120,6 @@
                             <div class="form-group">
                                 <label for="alipay_key">密钥 (Key)</label>
                                 <input type="password" id="alipay_key" class="form-control" value="********" placeholder="输入新的密钥">
-                                <small class="text-danger">注意：密钥在真实应用中不应明文返回。</small>
                             </div>
                         </div>
                     </div>
@@ -83,6 +129,7 @@
                         <label for="wechatpay_mch_id">商户号 (Mch ID)</label>
                         <input type="text" id="wechatpay_mch_id" class="form-control">
                     </div>
+                    
                     
                     <button type="submit" class="button mt-3">
                         <i class="fas fa-save"></i> 保存设置
@@ -102,17 +149,53 @@
         const form = document.getElementById('payment-settings-form');
         const formMessage = document.getElementById('form-message');
 
+        // [修改] 定义所有密码字段
+        const passwordFields = [
+            'alipay_key', 
+            'stripe_secret_key', 
+            'stripe_webhook_secret', 
+            'crypto_api_key', // [!!!] 新增
+            'crypto_webhook_secret' // [!!!] 新增
+        ];
+        
+        // [修改] 定义所有文本字段
+        const textFields = [
+            'alipay_partner_id',
+            'wechatpay_mch_id',
+            'stripe_public_key',
+            'crypto_gateway_url' // [!!!] 新增
+        ];
+        
+        // [修改] 定义所有选择字段
+        const selectFields = [
+            'is_enabled',
+            'default_gateway'
+        ];
+
         // 1. 加载现有设置
         async function loadSettings() {
             formMessage.style.display = 'none';
             try {
-                // 使用 adminFetch 替换 fetch
                 const settings = await adminFetch('/api/admin/settings/payment');
                 
-                document.getElementById('alipay_partner_id').value = settings.alipay_partner_id || '';
-                document.getElementById('wechatpay_mch_id').value = settings.wechatpay_mch_id || '';
+                // 加载文本字段
+                textFields.forEach(id => {
+                    document.getElementById(id).value = settings[id] || '';
+                });
+                
+                // 加载选择字段
                 document.getElementById('is_enabled').value = settings.is_enabled ? 'true' : 'false';
-                document.getElementById('default_gateway').value = settings.default_gateway || 'alipay';
+                document.getElementById('default_gateway').value = settings.default_gateway || 'usdt_gateway';
+
+                // 密码字段不显示真实值
+                passwordFields.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && settings[id]) {
+                        el.value = "********";
+                    } else if (el) {
+                        el.value = ""; // 确保空值是空字符串
+                    }
+                });
                 
             } catch (error) {
                 formMessage.textContent = '加载失败: ' + error.message;
@@ -121,30 +204,53 @@
             }
         }
 
-        // 2. 保存设置
+        // 2. [修改] 保存设置
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             formMessage.style.display = 'none';
 
-            const updates = {
-                alipay_partner_id: document.getElementById('alipay_partner_id').value,
-                // Note: 如果密码输入框未修改，则不应发送其值或发送一个占位符
-                alipay_key: document.getElementById('alipay_key').value === '********' ? undefined : document.getElementById('alipay_key').value,
-                wechatpay_mch_id: document.getElementById('wechatpay_mch_id').value,
-                is_enabled: document.getElementById('is_enabled').value === 'true',
-                default_gateway: document.getElementById('default_gateway').value,
-            };
+            const updates = {};
+            
+            // 收集文本字段
+            textFields.forEach(id => {
+                updates[id] = document.getElementById(id).value;
+            });
+            
+            // 收集选择字段
+            updates['is_enabled'] = document.getElementById('is_enabled').value === 'true';
+            updates['default_gateway'] = document.getElementById('default_gateway').value;
+
+            // [修改] 仅在密码被修改时才发送
+            passwordFields.forEach(id => {
+                const el = document.getElementById(id);
+                // 只有当它有值且不是占位符时，才更新
+                if (el.value && el.value !== "********") {
+                    updates[id] = el.value;
+                } else {
+                    updates[id] = undefined; // 确保不发送 '********'
+                }
+            });
 
             try {
-                // 使用 adminFetch 替换 fetch
                 await adminFetch('/api/admin/settings/payment', {
                     method: 'POST',
                     body: JSON.stringify(updates)
                 });
 
-                formMessage.textContent = '设置已保存成功！ (模拟)';
+                formMessage.textContent = '设置已保存成功！';
                 formMessage.className = 'mt-3 text-success';
                 formMessage.style.display = 'block';
+                
+                // 重新设置密码框为占位符
+                passwordFields.forEach(id => {
+                    const el = document.getElementById(id);
+                    // 如果它有值 (无论是刚保存的还是旧的), 且 updates[id] 是 undefined (意味着未更改)
+                    // 或者 updates[id] 刚刚被设置
+                    // 简单逻辑：只要输入框不是空的，就重置为 '********'
+                    if (el.value) { 
+                        el.value = "********";
+                    }
+                });
                 
             } catch (error) {
                 formMessage.textContent = error.message;
