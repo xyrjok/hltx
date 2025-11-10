@@ -63,11 +63,12 @@
                             <p>您可以在此为商品添加多种规格。每个规格都可以设置独立的批发价和自选加价。</p>
                             <div class="row g-2 d-none d-lg-flex mb-2">
                                 <div class="col-md-2"><label class="form-label">规格名称</label></div>
-                                <div class="col-md-2"><label class="form-label">字体颜色</label></div>
+                                <div class="col-md-1"><label class="form-label">字体颜色</label></div>
+                                <div class="col-md-2"><label class="form-label">图片链接</label></div>
                                 <div class="col-md-1"><label class="form-label">售价</label></div>
                                 <div class="col-md-2"><label class="form-label">批发价配置</label></div>
                                 <div class="col-md-1"><label class="form-label">库存</label></div>
-                                <div class="col-md-2"><label class="form-label">自选加价</label></div>
+                                <div class="col-md-1"><label class="form-label">自选加价</label></div>
                                 <div class="col-md-1"><label class="form-label">销量</label></div>
                                 <div class="col-md-1"></div>
                             </div>
@@ -137,23 +138,20 @@
                         <label class="form-label d-lg-none">规格名称</label>
                         <input type="text" class="form-control variant-name" placeholder="规格名称" required>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-1">
                         <label class="form-label d-lg-none">字体颜色</label>
                         <input type="text" class="form-control variant-color-code" placeholder="例如: #FFFFFF">
                     </div>
+                    <div class="col-lg-2">
+                        <label class="form-label d-lg-none">图片链接</label>
+                        <input type="text" class="form-control variant-image-url" placeholder="http://.../img.png">
+                    </div>
                     <div class="col-lg-1">
                         <label class="form-label d-lg-none">售价</label>
-                        <input type="number" class="form-control variant-price" placeholder="售价" step="0.01" required>
-                    </div>
-                    <div class="col-lg-2">
-                        <label class="form-label d-lg-none">批发价配置</label>
-                        <textarea class="form-control variant-wholesale-config" rows="1" placeholder="例如: 5=3,10=2"></textarea>
-                        </div>
-                    <div class="col-lg-1">
-                        <label class="form-label d-lg-none">库存</label>
+...
                         <input type="number" class="form-control variant-stock" placeholder="库存" readonly>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-1">
                         <label class="form-label d-lg-none">自选加价</label>
                         <input type="number" class="form-control variant-addon-price" placeholder="自选加价" step="0.01">
                         </div>
@@ -209,6 +207,7 @@
             
             variantCard.querySelector('.variant-name').value = variant.name || '';
             variantCard.querySelector('.variant-color-code').value = variant.color_code || '';
+            variantCard.querySelector('.variant-image-url').value = variant.image_url || '';
             variantCard.querySelector('.variant-price').value = variant.price || variant.base_price || '';
             variantCard.querySelector('.variant-addon-price').value = variant.addon_price || '';
             variantCard.querySelector('.variant-stock').value = variant.stock_count || variant.stock || 0;
@@ -297,6 +296,7 @@
                     id: variantId, 
                     name: name,
                     color_code: variantCard.querySelector('.variant-color-code').value || '',
+                    image_url: variantCard.querySelector('.variant-image-url').value || '',
                     price: price,
                     addon_price: variantCard.querySelector('.variant-addon-price').value || 0,
                     stock: variantCard.querySelector('.variant-stock').value || 0, // (这个 stock 字段是冗余的)
