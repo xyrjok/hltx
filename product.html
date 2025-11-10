@@ -22,12 +22,10 @@
 
     <main class="container section">
         <div class="product-detail-layout">
-            <!-- 商品图片 -->
             <div class="product-detail-image">
                 <img id="product-image" src="https://placehold.co/600x400/e2e8f0/64748b?text=Loading..." alt="商品图片">
             </div>
 
-            <!-- 商品信息和购买表单 -->
             <div class="product-detail-info">
                 <h1 id="product-name">正在加载...</h1>
                 <p id="product-price" class="product-price-large"></p>
@@ -38,7 +36,12 @@
                     <div id="variants-container" class="variants-container">
                         <p>正在加载规格...</p>
                     </div>
-                    <button type="submit" class="button button-primary button-full" disabled>请先选择规格</button>
+                    
+                    <h3 style="margin-top: 1rem;">选择支付方式</h3>
+                    <div id="gateways-container" class="variants-container">
+                        <p>请先选择规格...</p>
+                    </div>
+                    <button type="submit" class="button button-primary button-full" disabled>请先选择规格和支付方式</button>
                 </form>
                 <p id="error-message" class="error-message"></p>
             </div>
@@ -61,6 +64,9 @@
             const productPrice = document.getElementById('product-price');
             const productImage = document.getElementById('product-image');
             const variantsContainer = document.getElementById('variants-container');
+            // [!!! 新增 !!!]
+            const gatewaysContainer = document.getElementById('gateways-container');
+            
             const form = document.getElementById('purchase-form');
             const purchaseButton = form.querySelector('button');
             const errorMessage = document.getElementById('error-message');
@@ -94,6 +100,8 @@
                 let selectedVariantId = null;
                 let selectedVariantName = '';
                 let selectedVariantPrice = 0;
+                // [!!! 新增 !!!]
+                let selectedGatewayId = null; 
 
                 // 渲染规格
                 product.variants.forEach((variant) => {
@@ -124,20 +132,87 @@
                         selectedVariantPrice = finalPrice;
                         
                         productPrice.textContent = `￥${selectedVariantPrice.toFixed(2)}`;
+                        
+                        // [!!! 新增 !!!] 选择规格后，加载支付方式
+                        loadGateways();
+                        
+                        // 更新按钮状态
+                        updateButtonStatus();
+                    });
+                });
+                
+                // [!!! 新增 !!!] 加载支付方式的函数
+                async function loadGateways() {
+                    // (如果已加载，则不重复加载)
+                    if (gatewaysContainer.innerHTML !== '<p>请先选择规格...</p>') {
+                        return;
+                    }
+                    
+                    gatewaysContainer.innerHTML = '<p>正在加载支付方式...</p>';
+                    try {
+                        const response = await fetch('/api/payment_gateways');
+                        if (!response.ok) throw new Error('加载支付方式失败');
+                        const gateways = await response.json();
+                        
+                        if (gateways.length === 0) {
+                            gatewaysContainer.innerHTML = '<p>暂无可用的支付方式。</p>';
+                            purchaseButton.disabled = true;
+                            purchaseButton.textContent = '暂无可用支付方式';
+                            return;
+                        }
+                        
+                        gatewaysContainer.innerHTML = ''; // 清空
+                        
+                        gateways.forEach(gw => {
+                            const gwId = `gw-${gw.id}`;
+                            const div = document.createElement('div');
+                            div.className = 'variant-option';
+                            
+                            const input = document.createElement('input');
+                            input.type = 'radio';
+                            input.name = 'gateway';
+                            input.id = gwId;
+                            input.value = gw.id;
+                            
+                            const label = document.createElement('label');
+                            label.htmlFor = gwId;
+                            label.textContent = gw.name; // (来自 /api/payment_gateways)
+                            
+                            div.appendChild(input);
+                            div.appendChild(label);
+                            gatewaysContainer.appendChild(div);
+                            
+                            input.addEventListener('change', () => {
+                                selectedGatewayId = gw.id;
+                                updateButtonStatus();
+                            });
+                        });
+                        
+                    } catch (e) {
+                         gatewaysContainer.innerHTML = `<p class="error-message">${e.message}</p>`;
+                    }
+                }
+                
+                // [!!! 新增 !!!] 更新按钮状态
+                function updateButtonStatus() {
+                    if (selectedVariantId && selectedGatewayId) {
                         purchaseButton.textContent = `立即购买 (${selectedVariantName})`;
                         purchaseButton.disabled = false;
                         errorMessage.textContent = '';
-                    });
-                });
+                    } else if (selectedVariantId) {
+                        purchaseButton.textContent = '请选择支付方式';
+                        purchaseButton.disabled = true;
+                    }
+                }
 
-                // 提交表单
+                // [!!! 修改 !!!] 提交表单
                 form.addEventListener('submit', (e) => {
                     e.preventDefault();
-                    if (selectedVariantId) {
-                        // 跳转到支付页面
-                        window.location.href = `/pay.html?variant_id=${selectedVariantId}`;
+                    if (selectedVariantId && selectedGatewayId) {
+                        // [!!!] 跳转到支付页面，同时传递 gateway_id
+                        window.location.href = `/pay.html?variant_id=${selectedVariantId}&gateway_id=${selectedGatewayId}`;
                     } else {
-                        errorMessage.textContent = '请选择一个规格。';
+                        errorMessage.textContent = '请选择一个规格和支付方式。';
                     }
                 });
 
