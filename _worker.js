@@ -1,7 +1,6 @@
 // _worker.js: Cloudflare Worker D1 数据库集成版本
 // [!!!] 架构已升级为“多支付通道”模型 [!!!]
 // 它现在依赖 D1 中的 'PaymentGateways' 表。
-// 旧的 'PaymentSettings' 表和相关 API 已被移除。
 
 import { Router } from 'itty-router';
 
@@ -106,10 +105,123 @@ async function createPaymentSession(env, order, settings) {
             throw new Error(`调用支付网关失败: ${e.message}`);
         }
     }
+
+    // [!!! 新增模板 - 支付宝 !!!]
+    // 假设您在后台创建的 "接口类型" 为 "agg_alipay"
+    if (gatewayType === 'agg_alipay') {
+        // [!!!] 这里的字段名来自数据库，不用改
+        const merchantId = settings.merchant_id; // 您在后台填的商户ID
+        const apiKey = settings.secret_key;     // 您在后台填的密钥
+        
+        // [!!!] 1. 修改这里: 换成您聚合支付平台的下单API地址
+        const gatewayUrl = 'https://api.your-aggregator.com/create_order';
+
+        if (!merchantId || !apiKey) {
+            throw new Error('聚合支付(支付宝) 商户ID 或 API 密钥未配置');
+        }
+
+        try {
+            // [!!!] 2. 关键: 根据您平台的API文档修改 body
+            //    - 检查金额单位 (是元还是分？total_amount 的单位是 元)
+            //    - 检查签名方法 (是否需要 sign 字段？)
+            //    - 检查支付类型字段 (type: 'alipay'?)
+            const response = await fetch(gatewayUrl, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // [!!!] 3. 检查: 您的平台可能需要不同的认证方式 (例如 'Authorization': `Bearer ${apiKey}`)
+                },
+                body: JSON.stringify({
+                    mchid: merchantId,
+                    order_id: order_id,         
+                    amount: total_amount * 100, // (!!! 示例：假设平台需要 "分" 为单位)
+                    payment_type: "alipay",     // (!!! 示例：假设平台这样指定支付宝)
+                    product_name: product_name,
+                    
+                    // [!!!] 4. 回调地址 (这部分不用改，项目已帮您写好)
+                    notify_url: `https://${env.WORKER_URL}/api/payment/notify/${settings.id}`,
+                    return_url: `https://${env.SITE_URL}/pay.html?order_id=${order_id}`
+                    
+                    // [!!!] 5. 签名 (示例：如果您的平台需要 MD5 签名)
+                    // (您需要自行在 Worker 中实现 MD5 或其他签名算法)
+                    // sign: calculate_signature(...) 
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                // [!!!] 6. 修改: 错误信息的字段 (可能是 msg)
+                throw new Error(`聚合支付创建订单失败: ${errData.message || response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            // [!!!] 7. 修改: 检查返回的二维码字段名
+            return {
+                payment_url: data.payment_url, // (可能是 null)
+                qr_code_content: data.qr_code_content, // (可能是 data.qrcode 或 data.qr_url)
+                payment_id: data.gateway_order_id // (可能是 data.platform_order_id)
+            };
+            
+        } catch (e) {
+            console.error("调用聚合支付(支付宝)失败:", e);
+            throw new Error(`调用聚合支付网关失败: ${e.message}`);
+        }
+    }
+    
+    // [!!! 新增模板 - 微信支付 !!!]
+    // 假设您在后台创建的 "接口类型" 为 "agg_wechat"
+    if (gatewayType === 'agg_wechat') {
+        // [!!!] 这里的字段名来自数据库，不用改
+        const merchantId = settings.merchant_id; // 您在后台填的商户ID
+        const apiKey = settings.secret_key;     // 您在后台填的密钥
+        
+        // [!!!] 1. 修改这里: 换成您聚合支付平台的下单API地址
+        const gatewayUrl = 'https://api.your-aggregator.com/create_order';
+
+        if (!merchantId || !apiKey) {
+            throw new Error('聚合支付(微信) 商户ID 或 API 密钥未配置');
+        }
+
+        try {
+            // [!!!] 2. 关键: 根据您平台的API文档修改 body
+            const response = await fetch(gatewayUrl, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mchid: merchantId,
+                    order_id: order_id,         
+                    amount: total_amount * 100, // (!!! 示例：假设平台需要 "分" 为单位)
+                    payment_type: "wechat",     // (!!! 示例：假设平台这样指定微信)
+                    product_name: product_name,
+                    notify_url: `https://${env.WORKER_URL}/api/payment/notify/${settings.id}`,
+                    return_url: `https://${env.SITE_URL}/pay.html?order_id=${order_id}`
+                    // sign: calculate_signature(...) // (!!! 示例：签名)
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(`聚合支付创建订单失败: ${errData.message || response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            // [!!!] 7. 修改: 检查返回的二维码字段名
+            return {
+                payment_url: data.payment_url, 
+                qr_code_content: data.qr_code_content, 
+                payment_id: data.gateway_order_id 
+            };
+            
+        } catch (e) {
+            console.error("调用聚合支付(微信)失败:", e);
+            throw new Error(`调用聚合支付网关失败: ${e.message}`);
+        }
+    }
     
     if (gatewayType === 'alipay' || gatewayType === 'wechatpay' || gatewayType === 'stripe') {
         // ... 在这里添加 Stripe, 支付宝等的真实 API 调用逻辑 ...
-        // ... 使用 settings.merchant_id, settings.secret_key ...
         
         // --- 模拟返回，直到您接入真实 API ---
         console.log(`[模拟支付] 为订单 ${order_id} 创建 ${gatewayType} 支付，金额 ${total_amount}`);
@@ -127,6 +239,9 @@ async function createPaymentSession(env, order, settings) {
 // 3. [!!! 新增 !!!] Webhook 签名验证
 // 使用 Web Crypto API 验证 HMAC-SHA256 签名
 async function verifyWebhookSignature(secret, body, signatureHeader) {
+    // [!!!] 注意：如果您的聚合平台使用 MD5 签名，您需要重写此函数
+    // [!!!] 当前函数只支持 HMAC-SHA256 (通常在 X-Signature 头中)
+    
     if (!secret || !body || !signatureHeader) {
         return false;
     }
@@ -414,13 +529,18 @@ router.post('/api/payment/notify/:gateway_id', async ({ params, request, env }) 
         }
 
         const secret = gatewaySettings.webhook_secret;
+        
+        // [!!!] 注意：您聚合平台的签名头可能不是 'X-Signature'
         const signatureHeader = request.headers.get('X-Signature'); // (取决于您的网关)
         const body = await request.clone().text(); // 必须克隆才能读取 body
         
-        // (如果您的网关不提供签名，请务必删除此验证，但强烈不推荐)
+        // [!!!] 注意：如果您的平台使用 MD5 签名，您需要修改 verifyWebhookSignature 函数
+        // [!!!] 或者在这里自己实现 MD5 验证逻辑
         const isValid = await verifyWebhookSignature(secret, body, signatureHeader);
         
         if (!isValid) {
+            // [!!!] 警告：如果您的平台不提供签名，或您无法实现验证，
+            // [!!!] 强烈不推荐，但您可以注释掉此检查以进行测试。
             console.error(`[Webhook] 网关 ${gatewayId} 签名验证失败`);
             return error(401, 'Invalid Signature');
         }
@@ -430,8 +550,11 @@ router.post('/api/payment/notify/:gateway_id', async ({ params, request, env }) 
         console.log(`[Webhook] 收到 ${gatewayId} 已验证的回调:`, parsedBody);
         
         // (!! 这里的解析逻辑取决于您的网关 !!)
-        const order_id = parsedBody.order_id; // (您在创建时传入的ID)
-        const payment_status = parsedBody.status === 'completed' ? 'success' : 'failed'; // (网关的状态)
+        // [!!!] 1. 修改: 检查平台返回的订单号字段 (可能是 out_trade_no)
+        const order_id = parsedBody.order_id; 
+        
+        // [!!!] 2. 修改: 检查平台返回的支付状态 (可能是 'success' 'TRADE_SUCCESS' 等)
+        const payment_status = parsedBody.status === 'completed' ? 'success' : 'failed'; 
 
         if (payment_status === 'success') {
             
@@ -470,6 +593,7 @@ router.post('/api/payment/notify/:gateway_id', async ({ params, request, env }) 
         }
         
         // 4. 向支付网关返回成功
+        // [!!!] 3. 修改: 检查您的平台要求返回什么 (可能是纯文本 "success" 或 "OK")
         return json({ received: true });
         
     } catch (e) {
