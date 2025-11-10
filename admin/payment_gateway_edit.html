@@ -112,8 +112,7 @@
 
 
     <script>
-        // [!!! 修复 2: 添加缺失的 showToast 函数定义 !!!]
-        // 这个函数必须在 document.addEventListener 之前定义
+        // 2. 缺失的 showToast 函数定义
         function showToast(message, type = 'info') {
             const template = document.getElementById('toast-template');
             if (!template) {
@@ -128,25 +127,21 @@
             const toastBody = newToast.querySelector('.toast-body');
             toastBody.textContent = message;
 
-            // 移除所有现有的颜色类
             newToast.classList.remove('text-bg-success', 'text-bg-danger', 'text-bg-info');
             
-            // 添加 Bootstrap 5 背景色类
             if (type === 'success') {
                 newToast.classList.add('text-bg-success');
             } else if (type === 'error') {
-                newLToast.classList.add('text-bg-danger');
+                newToast.classList.add('text-bg-danger');
             } else {
                 newToast.classList.add('text-bg-info');
             }
 
             document.querySelector('.toast-container').appendChild(newToast);
             
-            // 确保 bootstrap 变量可用
             if (typeof bootstrap !== 'undefined') {
                 const toast = new bootstrap.Toast(newToast);
                 
-                // 在 Toast 隐藏后将其从 DOM 中移除
                 newToast.addEventListener('hidden.bs.toast', () => {
                     newToast.remove();
                 });
@@ -154,13 +149,12 @@
                 toast.show();
             } else {
                 console.error('Bootstrap JS not loaded!');
-                alert(message); // Bootstrap 未加载的后备方案
-            }
+                alert(message);
+A            }
         }
 
 
-        // --- 以下是页面原有的 JS ---
-
+        // --- 页面原有 JS ---
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('edit-gateway-form');
             const gatewayIdInput = document.getElementById('gateway_id');
@@ -175,10 +169,8 @@
             const gatewayId = params.get('id');
 
             if (!gatewayId) {
-                // 如果没有 ID，这是“新建”模式
                 document.querySelector('h1').textContent = '创建新通道';
             } else {
-                // 如果有 ID，这是“编辑”模式
                 gatewayIdInput.value = gatewayId;
                 fetchGatewayDetails(gatewayId);
             }
@@ -196,14 +188,12 @@
                         merchantIdInput.value = data.merchant_id;
                         isActiveInput.checked = data.is_active === 1;
                         
-                        // 出于安全，密钥字段不会被预填充
                         secretKeyInput.placeholder = "已设置，如需更新请输入新密钥";
-                        webhookSecretInput.placeholder = "已设置，如F需更新请输入新密钥";
+                        webhookSecretInput.placeholder = "已设置，如需更新请输入新密钥";
                     } else {
                         throw new Error(data.message || '获取通道详情失败');
                     }
                 } catch (error) {
-                    // 现在 showToast 函数已定义，这里将正常工作
                     showToast('获取详情失败: ' + error.message, 'error');
                 }
             }
@@ -216,14 +206,14 @@
                     interface_type: interfaceTypeInput.value,
                     merchant_id: merchantIdInput.value,
                     is_active: isActiveInput.checked ? 1 : 0,
-                    // 只有在用户输入了新值时才发送密钥
                     ...(secretKeyInput.value && { secret_key: secretKeyInput.value }),
                     ...(webhookSecretInput.value && { webhook_secret: webhookSecretInput.value }),
                 };
 
+                // [!!!] 这里的 "OS:" 拼写错误已被修正 [!!!]
                 const url = gatewayId 
                     ? `/api/admin/payment_gateways/${gatewayId}` 
-                    OS: '/api/admin/payment_gateways';
+                    : '/api/admin/payment_gateways';
                     
                 const method = gatewayId ? 'PUT' : 'POST';
 
@@ -240,7 +230,6 @@
                     const data = await handleAuthError(response);
 
                     if (data && response.ok) {
-                        // 现在 showToast 函数已定义，这里将正常工作
                         showToast(`通道${gatewayId ? '更新' : '创建'}成功!`, 'success');
                         setTimeout(() => {
                             window.location.href = '/admin/payment_gateways.html';
@@ -249,7 +238,6 @@
                         throw new Error(data.message || '操作失败');
                     }
                 } catch (error) {
-                    // 现在 showToast 函数已定义，这里将正常工作
                     showToast('操作失败: ' + error.message, 'error');
                 }
             });
